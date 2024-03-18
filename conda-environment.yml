@@ -1,0 +1,10 @@
+name: binsense_condaenv
+channels:
+  - pytorch
+  - defaults
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11.8
+  - pip=24.0
+  - pytorch=2.2.1

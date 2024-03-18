@@ -1,0 +1,39 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "binsense-libs"
+version = "0.0.1"
+description = "code modules for Amazon bin challenge"
+authors = [
+    "Nitesh C <reddy.nitesh@gmail.com>",
+    "Leo P <leo@groundswellai.com>",
+    "Rathi A <rathianandk@gmail.com>"
+]
+packages = [
+  { include = "binsense" }
+]
+
+[tool.poetry.dependencies]
+
+
+[tool.poetry.dev-dependencies]
+black = "^23.1.0"
+flake8 = "^6.0.0"
+isort = "^5.12.0"
+pylint = "^2.16.3"
+pyright = "^1.1.296"
+pytest = "^7.2.1"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.pyright]
+
+[tool.pylint."messages control"]
+disable = "all"
+enable = ["empty-docstring", "missing-module-docstring", "missing-class-docstring", "missing-function-docstring"]
+ignore = ["setup.py", "__init__.py"]
+ignore-paths = ["tests"]
