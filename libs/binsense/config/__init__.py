@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+# TODO: Make this configuration configurable by environment
 ROOT_DIR_NAME = 'binsense'
 cur_path = Path(os.path.abspath('.'))
 dir_name = cur_path.name
@@ -12,5 +13,18 @@ MODEL_DIR = PROJ_DIR+'/_models'
 DATA_DIR = PROJ_DIR+'/_data'
 LOGS_DIR = PROJ_DIR+'/_logs'
 
+BIN_S3_DOWNLOAD_DIR = os.path.join(DATA_DIR, 's3')
+BIN_DATA_DIR = os.path.join(DATA_DIR, 'bin')
+
+BIN_S3_DOWNLOAD_IMAGES_DIR = os.path.join(BIN_S3_DOWNLOAD_DIR, 'images')
+BIN_S3_DOWNLOAD_META_DIR = os.path.join(BIN_S3_DOWNLOAD_DIR, 'metadata')
+BIN_S3_BUCKET = 'aft-vbi-pds'
+IK_DATA_INDEX_FILENAME = 'ik_data_index.csv'
+
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(BIN_S3_DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(BIN_S3_DOWNLOAD_IMAGES_DIR, exist_ok=True)
+os.makedirs(BIN_S3_DOWNLOAD_META_DIR, exist_ok=True)
+os.makedirs(BIN_DATA_DIR, exist_ok=True)

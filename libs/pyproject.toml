@@ -11,6 +11,8 @@ authors = [
     "Leo P <leo@groundswellai.com>",
     "Rathi A <rathianandk@gmail.com>"
 ]
+license = "MIT"
+requires-python = ">=3.11"
 packages = [
   { include = "binsense" }
 ]
