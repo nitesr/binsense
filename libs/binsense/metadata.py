@@ -11,10 +11,30 @@ import pandas as pd
 
 
 class BinMetadataLoader:
+    """
+    Loads the downloaded bin data to pandas. \
+    Expects the images and metadata to be available locally. \
+    check BinS3DataDownloader to download the data. \
+    key method is `load`
+    """
+    
     def __init__(self) -> None:
         pass
 
     def load(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Loads the downloaded bin meta-data to pandas dataframes.
+        
+        Returns:
+            `Tuple[pandas.DataFrame, pandas.DataFrame]`: bin & item metadata panda DataFrames.
+            bin `DataFrame` columns = ['bin_id', 'bin_qty', 'bin_image_name', \
+                'bin_image_kb', 'bin_image_width', 'bin_image_height']
+            item `DataFrame` columns = [ 'bin_id', 'item_id', 'item_name', \
+                'item_qty', 'item_length', 'item_length_unit', 'item_width', \
+                'item_width_unit', 'item_height', 'item_height_unit', \
+                'item_weight', 'item_weight_unit']
+        """
+        
         bin_df = pd.DataFrame(columns=[
             'bin_id', 'bin_qty', 'bin_image_name', 
             'bin_image_kb', 'bin_image_width', 'bin_image_height'])
