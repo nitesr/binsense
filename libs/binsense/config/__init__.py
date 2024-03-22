@@ -21,10 +21,15 @@ BIN_S3_DOWNLOAD_META_DIR = os.path.join(BIN_S3_DOWNLOAD_DIR, 'metadata')
 BIN_S3_BUCKET = 'aft-vbi-pds'
 IK_DATA_INDEX_FILENAME = 'ik_data_index.csv'
 
+BIN_ROBO_WORKSPACE = 'nitesh-c-eszzc'
+BIN_ROBO_PROJECT = "binsense_segments"
+BIN_ROBO_DOWNLOAD_DIR = os.path.join(DATA_DIR, 'robo')
+
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(BIN_S3_DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(BIN_S3_DOWNLOAD_IMAGES_DIR, exist_ok=True)
 os.makedirs(BIN_S3_DOWNLOAD_META_DIR, exist_ok=True)
+os.makedirs(BIN_ROBO_DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(BIN_DATA_DIR, exist_ok=True)
