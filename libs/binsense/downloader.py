@@ -109,7 +109,7 @@ class BinS3DataDownloader:
         
         self._mark()
 
-def download(force=False):
+def download(force: bool =False) -> None:
     """
     delegates the call to `BinS3DataDownloader.download`.
     """

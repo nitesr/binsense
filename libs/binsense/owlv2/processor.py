@@ -519,7 +519,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
         data_format: ChannelDimension = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
         **kwargs,
-    ) -> PIL.Image.Image:
+    ) -> Dict[str, torch.Tensor]:
         """
         Preprocess an image or batch of images.
 
@@ -554,6 +554,8 @@ class Owlv2ImageProcessor(BaseImageProcessor):
                 - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
                 - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
                 - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
+        Returns:
+            dict({"pixel_values", torch.Tensor})
         """
         do_rescale = do_rescale if do_rescale is not None else self.do_rescale
         rescale_factor = rescale_factor if rescale_factor is not None else self.rescale_factor

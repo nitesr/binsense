@@ -5,44 +5,47 @@ from pathlib import Path
 from xml.etree.ElementTree import indent, parse, ElementTree, Element, SubElement, tostring
 from collections import defaultdict
 from PIL import Image
+from dataclasses import dataclass
+from enum import Enum
+from tqdm import tqdm
 
 import numpy as np
-import json
+import json, os, shutil, yaml, re, logging
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union, Any, Callable
 
-class DatasetBuilder:
-    """
-    Marker class to declare the methods across all the DatasetBuilder(s).
-    """
-    def __init__(self) -> None:
-        pass
-    
-    def add_image(self, img_path: str):
-        """
-        should add the image to the dataset
+logger = logging.getLogger(__name__)
 
-        Args:
-            img_path (`str`):
-                complete file path to the image.
-        """
-        pass
-    
-    def add_category(self, category: str):
-        """
-        should add the category/label to the dataset
+@dataclass
+class BoundingBox:
+    label: str = None
+    center_x: float = None
+    center_y: float = None
+    width: float = None
+    height: float = None
+    normalized: bool = True
+    _label_id: int = None
+    _img_id: int = None
 
-        Args:
-            category (`str`):
-                category name.
-        """
-        pass
-    
-    def add_annotation(self, img_id, category_id, bbox: np.ndarray=None):
-        pass
-    
-    def build(self) -> dict:
-        return dict()
+class DataTag(str, Enum):
+    TRAIN = 'train'
+    TEST = 'test'
+    VALID = 'valid'
+
+@dataclass
+class ImageData:
+    id: int = None
+    name: str = None
+    path: str = None
+    tag: DataTag = DataTag.TRAIN
+    width: float = 0
+    height: float = 1
+    normalized: bool = True
+
+@dataclass
+class LabelData:
+    id: int = None
+    name: str = None
 
 class Dataset:
     """
@@ -51,14 +54,457 @@ class Dataset:
     def __init__(self) -> None:
         pass
     
-    def get_bbox(self, img_name: str) -> List[Dict]:
+    def get_images(self, tag: DataTag = DataTag.TRAIN) -> List[ImageData]:
         pass
     
-    def get_labels(self) -> List[str]:
+    def get_bboxes(self, img_name: str) -> List[BoundingBox]:
         pass
+    
+    def get_labels(self, img_name: str) -> List[LabelData]:
+        pass
+    
+    def to_file(self, file_path: str, format: str = None) -> None:
+        pass
+
+
+class DatasetBuilder:
+    """
+    Marker class to declare the methods across all the DatasetBuilder(s).
+    Usage:
+        builder = Yolov8DatasetBuilder()
+        cat_dict = build.add_categories(['cat', 'dog', 'wolf'])
+        img_id = builder.add_image('img_path', 'train')
+        builder.add_bboxes(img_id, cat_ids, bboxes)
+        
+    """
+    def __init__(self) -> None:
+        pass
+    
+    def add_image(self, img_path: str, tag: DataTag = DataTag.TRAIN) -> int:
+        """
+        should add the image to the dataset
+
+        Args:
+            img_path (`str`): complete file path to the image.
+            tag(`str`): train/test/valid tag. default is train
+        Returns:
+            img_id (`int`):
+        """
+        pass
+    
+    def add_category(self, category_name: str) -> int:
+        """
+        adds the category/label to the dataset, 
+        in case of duplicates returns the existing id.
+
+        Args:
+            category_name (`str`):
+        Returns:
+            catetory_id (`int`):
+        """
+        pass
+    
+    def add_categories(self, category_names: List[str]) -> Dict[str, int]:
+        """
+        adds the categories/labels to the dataset.
+        Args:
+            category_names (`List[str]`):
+        Returns:
+            catetory_ids (`Dict[str, int]`):
+        """
+        pass
+    
+    def add_bbox(self, img_id: int, category_id: int, bbox: np.ndarray=None):
+        """
+        adds the bounding box annotation to the dataset,
+        doesn't check for duplicates
+        Args:
+            img_id (`int`): image id
+            catetory_id (`int`): category id
+            bbox (`np.ndarray`): bbox coordinates,
+                should be cx, xy, w, h and normalized
+        """
+        pass
+    
+    def add_bboxes(self, img_id: int, category_ids: List[int], bboxes: np.ndarray=None):
+        """
+        adds the bounding box annotation to the dataset.
+        raises ValueError if len(category_ids) != len(bboxes)
+        doesn't check for duplicates
+        Args:
+        """
+        pass
+    
+    def build(self) -> Dataset:
+        pass
+
+class YoloDataset(Dataset):
+    def __init__(
+        self, 
+        images: Dict[str, ImageData], 
+        categories: Dict[str, LabelData], 
+        bboxes: Dict[int, List[BoundingBox]], 
+    ) -> None:
+        super(YoloDataset, self).__init__()
+        self.images = images
+        self.categories = categories
+        self.bboxes = bboxes
+    
+    def get_images(self, tag: DataTag = DataTag.TRAIN) -> List[ImageData]:
+        filtered_images = []
+        for key in self.images.keys():
+            if self.images[key].tag == tag:
+                filtered_images.append(self.images[key])
+        return filtered_images
+    
+    def _get_image(self, image_name: str) -> ImageData:
+        if image_name not in self.images.keys():
+            raise ValueError(f'image {image_name} is not found!')
+        return self.images[image_name]
+
+    def get_bboxes(self, img_name: str) -> List[BoundingBox]:
+        image_data = self._get_image(img_name)
+        return self.bboxes[image_data.id]
+    
+    def get_labels(self, img_name: str) -> List[LabelData]:
+        bboxes = self.get_bboxes(img_name)
+        filtered_labels  = []
+        for bbox in bboxes:
+            filtered_labels.append(self.categories[bbox.label])
+        return filtered_labels
+    
+    def to_file(self, file_path: str, format: str = 'v8') -> None:
+        if format == 'v8':
+            Yolov8Serializer(self).to_file(file_path)
+        elif format == 'v1':
+            Yolov1Serializer(self).to_file(file_path)
+        else:
+            raise ValueError(f'{format} is not supported!')
+
+class YoloDeserializer:
+    def __init__(self, dir_path: str) -> None:
+        self.dir_path = dir_path
+    
+    def read(self) -> YoloDataset:
+        pass
+
+class Yolov8Deserializer(YoloDeserializer):
+    def __init__(
+        self, 
+        dir_path: str, 
+        image_name_extractor: Callable[[str], str],
+        label_name_extractor: Callable[[str], str],
+        img_extns: List[str] = None) -> None:
+        super(Yolov8Deserializer, self).__init__(dir_path)
+        
+        if img_extns is None:
+            img_extns = ['.jpg', '.jpeg', '.png', '.tif']
+        if image_name_extractor is None:
+            image_name_extractor = lambda x: x
+        if label_name_extractor is None:
+            label_name_extractor = lambda x: x
+        
+        self.builder = YoloDatasetBuilder()
+        self.img_extns = img_extns
+        self.image_name_extractor = image_name_extractor
+        self.label_name_extractor = label_name_extractor
+        
+
+    def _read_index(self, index_file: str) -> Tuple[str, str, str]:
+        with open(index_file, 'r') as f:
+            data = yaml.safe_load(f)
+        # label_count = data['nc']
+        labels = data['names']
+        clean_labels = []
+        for l in labels:
+            clean_l = self.label_name_extractor(l)
+            if clean_l is None or len(clean_l) == 0:
+                logger.error(f'extracted label({clean_l}) is empty for {l}')
+                continue
+            clean_labels.append(clean_l)
+        
+        self.builder.add_categories(clean_labels)
+        
+        def _to_abs_path(ds_path: str):
+            return ds_path.replace('..', self.dir_path)
+            
+        return {\
+            DataTag.TRAIN: _to_abs_path(data['train']), 
+            DataTag.VALID: _to_abs_path(data['val']), 
+            DataTag.TEST: _to_abs_path(data['test'])
+        }
+    
+    def _interpret_ann_line(self, line: str, img_id: int) -> None:
+        tokens = [ t.strip() for t in line.split()]
+        label_id = tokens[0]
+        self.builder.add_bbox(
+            img_id, int(label_id),
+            np.array([float(tokens[1]), float(tokens[2]), float(tokens[3]), float(tokens[4])])
+        )
+        
+    def _read_ann_file(self, img_id: int, ann_path: str) -> None:
+        with open(ann_path, 'r') as f:
+            line = f.readline()
+            while line:
+                if not line.startswith('#'):
+                    self._interpret_ann_line(line, img_id)
+                line = f.readline()
+        
+    def _read_data(self, ds_path: str, tag: DataTag) -> None:
+        ds_dir, imgdir_name = os.path.split(ds_path)
+        if imgdir_name != 'images':
+            return
+        
+        chld_ds_dirs = os.listdir(ds_path)
+        progress_step = len(chld_ds_dirs) // 10
+        progress_bar = tqdm(
+            total=len(chld_ds_dirs),
+            file=open(os.devnull, 'w'),
+            desc=f'reading {tag} files')
+        
+        for i, imgfile_name in enumerate(chld_ds_dirs):
+            name, extn = os.path.splitext(imgfile_name)
+            if not extn in self.img_extns:
+                continue
+            img_path = os.path.join(ds_path, imgfile_name)
+            img_name = self.image_name_extractor(imgfile_name)
+            if img_name is None or len(img_name) == 0:
+                logger.error(f'extracted image name({img_name}) is empty for {imgfile_name}')
+                continue
+            img_id = self.builder.add_image(img_path, tag, img_name)
+            
+            lbl_path = os.path.join(ds_dir, 'labels', f'{name}.txt')
+            if not os.path.exists(lbl_path):
+                lbl_path = os.path.join(ds_dir, 'images', f'{name}.txt')
+            if not os.path.exists(lbl_path):
+                logger.info(f'label not found for {imgfile_name} @ {ds_dir}')
+                continue
+            
+            self._read_ann_file(img_id, lbl_path)
+            progress_bar.update(1)
+            if i >= progress_step:
+                progress_step += i
+                logger.info(str(progress_bar))
+        logger.info(str(progress_bar))
+    
+    def read(self) -> YoloDataset:
+        ds_dict = self._read_index(os.path.join(self.dir_path, 'data.yaml'))
+        
+        for tag, ds_path in ds_dict.items():
+            if os.path.exists(ds_path):
+                self._read_data(ds_path, tag)
+            else:
+                logger.warn(f'missing dataset path - {ds_path}')
+        
+        return self.builder.build()
+
+class YoloSerializer:
+    def __init__(self, dataset: YoloDataset) -> None:
+        self.dataset = dataset
+        
+    def _get_images(self) -> List[ImageData]:
+        return self.dataset.images.values()
+    
+    def _get_labels(self) -> List[LabelData]:
+        return self.dataset.categories.values()
+    
+    def _get_bboxes(self, img_id: int) -> List[BoundingBox]:
+        return self.dataset.bboxes[img_id]
+    
+    def _make_dir(self, root_path, tag):
+        tag_path = os.path.join(root_path, tag)
+        tag_images_path = os.path.join(tag_path, 'images')
+        os.makedirs(tag_path, exist_ok=True)
+        os.makedirs(tag_images_path, exist_ok=True)
+        return tag_images_path
+    
+    def _make_tag_dirs(self, root_path):
+        return ( \
+            self._make_dir(root_path, "train"),
+            self._make_dir(root_path, "valid")
+        )
+    
+    def _images_path(self, root_path, tag: DataTag):
+        tag_name = 'train' if tag == DataTag.TRAIN \
+            else 'valid' if tag == DataTag.VALID \
+                else 'test'
+        return os.path.join(root_path, tag_name, 'images')
+    
+    def _move_image(self, root_path, img_data: ImageData) -> str:
+        target_dir = self._images_path(root_path, img_data.tag)
+        target_path = os.path.join(target_dir, img_data.name)
+        shutil.copyfile(img_data.path, target_path)
+        return target_path
+    
+    def _create_ann(self, root_path, img_data: ImageData, bboxes: List[BoundingBox]) -> str:
+        target_path = self._images_path(root_path, img_data.tag)
+        pfx = os.path.splitext(img_data.name)[0]
+        ann_file = os.path.join(target_path, f'{pfx}.txt')
+        with open(ann_file, 'w') as f:
+            for bbox in bboxes:
+                f.write(' '.join([str(x) \
+                    for x in [ 
+                            bbox._label_id, 
+                            bbox.center_x, bbox.center_y, 
+                            bbox.width, bbox.height
+                    ]
+                ]))
+                f.write('\n')
+        return ann_file
     
     def to_file(self, file_path: str) -> None:
         pass
+
+class Yolov1Serializer(YoloSerializer):
+    def __init__(self, dataset: YoloDataset) -> None:
+        super(Yolov1Serializer, self).__init__(dataset)
+        
+    def _create_index(self, root_path: str, labels: List[LabelData], img_path_dict: Dict[DataTag, List[str]]):
+        labels = sorted(labels, key=lambda l: l.id)
+        
+        label_file = os.path.join(root_path, 'obj.names')
+        with open(label_file, 'w') as f:
+            for l in labels:
+                f.write(l)
+                f.write('\n')
+        
+        data_file = os.path.join(root_path, 'obj.data')
+        with open(data_file, 'w') as f:
+            f.write(f'classes = {len(labels)}\n')
+            f.write('train = data/train.txt\n')
+            f.write('valid = data/valid.txt\n')
+            f.write('names = data/obj.names\n')
+        
+        train_file = os.path.join(root_path, 'train.txt')
+        train_img_paths = img_path_dict[DataTag.TRAIN]
+        with open(train_file, 'w') as f:
+            for img_path in train_img_paths:
+                _, tail = os.path.split(img_path)
+                f.write(f'data/train/images/{tail}')
+                f.write('\n')
+        
+        val_file = os.path.join(root_path, 'valid.txt')
+        val_img_paths = img_path_dict[DataTag.VALID]
+        with open(val_file, 'w') as f:
+            for img_path in val_img_paths:
+                _, tail = os.path.split(img_path)
+                f.write(f'data/valid/images/{tail}')
+                f.write('\n')
+    
+    def to_file(self, file_path: str) -> None:
+        root_path = file_path
+        self._make_tag_dirs(root_path)
+        
+        img_path_dict = dict({DataTag.TRAIN: [], DataTag.VALID: []})
+        for img_data in self._get_images():
+            if img_data.tag == DataTag.TEST:
+                continue
+            bboxes_data = self._get_bboxes(img_data.id)
+            img_path = self._move_image(root_path, img_data)
+            img_path_dict[img_data.tag].append(img_path)
+            self._create_ann(root_path, img_data, bboxes_data)
+            
+        self._create_index(root_path, self._get_labels(), img_path_dict)
+
+class Yolov8Serializer(YoloSerializer):
+    def __init__(self, dataset: YoloDataset) -> None:
+        super(Yolov8Serializer, self).__init__(dataset)
+    
+    def _create_index(self, root_path: str, labels: List[LabelData]):
+        labels = sorted(labels, key=lambda l: l.id)
+        
+        index_file = os.path.join(root_path, 'data.yaml')
+        with open(index_file, 'w') as f:
+            f.write('train: ../train/images')
+            f.write('\n')
+            f.write('val: ../valid/images')
+            f.write('\n\n')
+            f.write('names:\n')
+            for i, l in enumerate(labels):
+                f.write(f" {i}: '{l.name}'\n")
+            f.write('\n')
+    
+    def to_file(self, file_path: str) -> None:
+        root_path = file_path
+        self._make_tag_dirs(root_path)
+        
+        for img_data in self._get_images():
+            if img_data.tag == DataTag.TEST:
+                continue
+            bboxes_data = self._get_bboxes(img_data.id)
+            self._move_image(root_path, img_data)
+            self._create_ann(root_path, img_data, bboxes_data)
+            
+        self._create_index(root_path, self._get_labels())
+
+class YoloDatasetBuilder(DatasetBuilder):
+    def __init__(self) -> None:
+        super(YoloDatasetBuilder, self).__init__()
+        self.categories = dict()
+        self.images = dict()
+        self.bboxes = dict()
+    
+    def add_image(self, img_path: str, tag: DataTag = DataTag.TRAIN, img_name: str = None) -> int:
+        if img_name is None:
+            img_name = img_name = Path(img_path).name
+        if img_name in self.images.keys():
+            return self.images[img_name].id
+        img_id = len(self.images)
+        self.images[img_name] = ImageData(**{
+            'id': img_id,
+            'name': img_name,
+            'path': img_path,
+            'tag': tag
+        })
+        self.bboxes[img_id] = []
+        return img_id
+    
+    def add_category(self, category_name: str) -> int:
+        if category_name in self.categories.keys():
+            return self.categories[category_name].id
+        cat_id = len(self.categories)
+        self.categories[category_name] = LabelData(**{
+            'id': cat_id,
+            'name': category_name
+        })
+        return cat_id
+    
+    def add_categories(self, category_names: List[str]) -> Dict[str, int]:
+        result = dict()
+        for name in category_names:
+            id = self.add_category(name)
+            result[name] = id
+        return result
+    
+    def add_bbox(self, img_id: int, category_id: int, bbox: np.ndarray = None):
+        if img_id not in range(0, len(self.images)) \
+            or category_id not in range(0, len(self.categories)):
+            raise ValueError('check if image and category is added!')
+        
+        def _get_label(category_id: str) -> str:
+            for name, cat_data in self.categories.items():
+                if cat_data.id == category_id:
+                    return name
+            return None
+        
+        self.bboxes[img_id].append(BoundingBox(**{
+            'label': _get_label(category_id),
+            '_label_id': category_id,
+            '_img_id': img_id,
+            'center_x': bbox[0],
+            'center_y': bbox[1],
+            'width': bbox[2],
+            'height': bbox[3]
+        }))
+        
+    def add_bboxes(self, img_id: int, category_ids: List[int], bboxes: np.ndarray = None):
+        for i, bbox in enumerate(bboxes):
+            self.add_bbox(img_id, category_ids[i], bbox)
+    
+    def build(self) -> YoloDataset:
+        return YoloDataset(self.images, self.categories, self.bboxes)
+
+# -- refactor below code to meet the interfaces ----------------
 
 class COCODataset(Dataset):
     def __init__(self, data: dict) -> None:
@@ -104,38 +550,6 @@ class COCODataset(Dataset):
         f = open(file_path, 'w')
         f.write(json.dumps(self.data, indent=2))
         f.close()
-
-class YoloDataset(Dataset):
-    def __init__(self, data: Dict, label_names: List[str]=[]) -> None:
-        super(YoloDataset, self).__init__()
-        self.data = data
-        self.label_names = label_names
-    
-    def get_bbox(self, img_name: str) -> List[Dict]:
-        anns = []
-        for ann in self.data[img_name]:
-            lbl_idx = ann[0]
-            bbox = ann[1:]
-            anns.append((self.label_names[lbl_idx], bbox))
-        return anns
-    
-    def get_labels(self) -> List[str]:
-        self.label_names
-    
-    def _stringify_bbox(self, img_name):
-        lines = []
-        for ann in self.data[img_name]:
-            f_ann = [str(int(ann[0]))]+[str(a) for a in ann[1:]]
-            lines.append(' '.join(f_ann)+'/n')
-        return lines
-        
-    def to_file(self, dir_path: str) -> None:
-        for img_name in self.data.keys():
-            ann_path = str(Path(dir_path) / img_name.replace(
-                Path(img_name).suffix, '.txt'))
-            f = open(ann_path, 'w')
-            f.writelines(self._stringify_bbox(img_name))
-            f.close()
 
 class VOCDataset(Dataset):
     def __init__(self, data: dict) -> None:
@@ -234,7 +648,7 @@ class COCODatasetBuilder(DatasetBuilder):
         for name in category_names:
             self.add_category(name)
     
-    def __check_if_exists(self, value: str, lst: list, attr_name: str = 'name') -> (bool, int):
+    def __check_if_exists(self, value: str, lst: List[str], attr_name: str = 'name') -> Tuple[bool, int]:
         for i, r in enumerate(lst):
             if r[attr_name] == value:
                 return (True, i)
@@ -303,7 +717,7 @@ class VOCDatasetBuilder(DatasetBuilder):
         super(VOCDatasetBuilder, self).__init__()
         self.data = {}
     
-    def add_image(self, img_path: str):
+    def add_image(self, img_path: str) -> str:
         img_name = Path(img_path).name
         if img_name in self.data.keys():
             return img_name
@@ -318,12 +732,12 @@ class VOCDatasetBuilder(DatasetBuilder):
             'size': dict({
                 "height": img.height,
                 'width': img.width,
-                'depth': 3 # TODO: read from cv2
+                'depth': 3 # TODO: read from cv2/PIL
             }),
         })
         return img_name
     
-    def add_annotation(self, img_id: str, category_id: str, bbox: np.ndarray = None):
+    def add_annotation(self, img_id: str, category_id: str, bbox: np.ndarray = None) -> str:
         if img_id not in self.data.keys():
             raise ValueError("img_id is not found")
         
@@ -382,66 +796,3 @@ class VOCDatasetBuilder(DatasetBuilder):
             d = VOCDatasetBuilder._xml_to_dict(xml_tree.getroot())
             data[d['annotation']['filename']] = d
         return VOCDataset(data)
-
-class YoloDatasetBuilder(DatasetBuilder):
-    def __init__(self) -> None:
-        super(YoloDatasetBuilder, self).__init__()
-        self.data = {}
-    def add_image(self, img_path: str):
-        img_name = Path(img_path).name
-        if img_name in self.data.keys():
-            return img_name
-        
-        self.data[img_name] = []
-        return img_name
-    
-    def add_annotation(self, img_id: str, category_id: int, bbox: np.ndarray = None):
-        if img_id not in self.data.keys():
-            raise ValueError("img_id is not found")
-        
-        ann = self.data[img_id]
-        i = len(ann)
-        ann.append([category_id, bbox[0], bbox[1], bbox[2], bbox[3]])
-        self.data[img_id] = ann
-        return '{}[{}]'.format(img_id, i)
-    
-    def build(self) -> Dataset:
-        return YoloDataset(self.data, label_names=[])
-    
-    def build_from_lines(lines: List) -> List:
-        anns = []
-        
-        for line in lines:
-            tokens = line.split(' ')
-            if len(tokens) == 5:
-                ann = [
-                    int(tokens[0]),
-                    float(tokens[1]),
-                    float(tokens[2]),
-                    float(tokens[3]),
-                    float(tokens[4])
-                ]
-                anns.apend(ann)
-        return anns
-
-    def build_from_file(
-        ann_dir_path: str, 
-        img_dir_path: str=None, 
-        label_names: List=[]) -> Dataset:
-        
-        if img_dir_path is None:
-            img_dir_path = Path(ann_dir_path).parent + '/images'
-            
-        data = {}
-        for img_path in ImageFileIterator(img_dir_path):
-            img_name = Path(img_path).name
-            ann_name = img_name.replace(Path(img_name).suffix, '.txt')
-            
-            annf = open(ann_dir_path+'/'+ann_name, 'r')
-            lines = annf.readlines()
-            annf.close()
-            
-            data[img_name] = YoloDatasetBuilder.build_from_lines(lines)
-        return YoloDataset(data, label_names)
-
-

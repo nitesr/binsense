@@ -6,9 +6,10 @@ from PIL import Image
 from tqdm import tqdm 
 from typing import Tuple
 
-import json, traceback, os
+import json, traceback, os, logging
 import pandas as pd
 
+logger = logging.getLogger(__name__)
 
 class BinMetadataLoader:
     """
@@ -46,7 +47,12 @@ class BinMetadataLoader:
             'item_height', 'item_height_unit', 
             'item_weight', 'item_weight_unit'])
 
-        for f_name in tqdm(os.listdir(ANN_DIR), desc="loading bin-metadata"):
+        ann_files = os.listdir(ANN_DIR)
+        progress_step = len(ann_files) // 10
+        ann_progress_iter = tqdm(
+            ann_files, 
+            desc="loading bin-metadata", file=open(os.devnull, 'w'))
+        for i, f_name in enumerate(ann_progress_iter):
             meta_path = os.path.join(ANN_DIR, f_name)
             if not os.path.isfile(meta_path):
                 continue
@@ -80,11 +86,15 @@ class BinMetadataLoader:
                         default_on_none(item_dict, ['height', 'unit']),
                         default_on_none(item_dict, ['weight','value'], float("nan")), 
                         default_on_none(item_dict, ['weight', 'unit'])]
+                if i == progress_step:
+                    progress_step += i
+                    logger.info(str(ann_progress_iter))
             except Exception as e:
                 traceback.print_exc()
-                print("failed", bin_id, e)
+                logger.error(f"failed {bin_id}", exc_info=1)
+        logger.info(str(ann_progress_iter))
 
         return bin_df, item_df
 
-def load():
+def load() -> Tuple[pd.DataFrame, pd.DataFrame]:
     return BinMetadataLoader().load()

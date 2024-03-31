@@ -1,6 +1,17 @@
 from typing import Any, Optional, List
 from pathlib import Path
-import os
+import os, shutil, re
+
+def backup_file(file_path: str, bkp_extn: str = 'bkp') -> str:
+    bkp_number = 0
+    dir_path, file_name = os.path.split(file_path)
+    bkp_pattern = re.compile(f'.*\.[0-9]+\.bkp$')
+    for fname in os.listdir(dir_path):
+        if fname == file_name and bkp_pattern.match(fname):
+            bkp_number = max(bkp_number, int(fname.split('.')[-2]))
+    bkp_number += 1
+    shutil.move(file_path, file_path+f'.{bkp_number}.bkp')
+    return file_path+f'.{bkp_number}.bkp'
 
 def default_on_none(dict_obj : dict, hkeys: list, default_value: Optional[Any] = None):
     if dict_obj:
