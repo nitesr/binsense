@@ -1,9 +1,8 @@
 from ..dataprep.roboflow_util import RoboflowCrawler
 from ..dataprep.roboflow_util import RoboflowDownloader
 from ..dataprep.config import DataPrepConfig
-from ..config import BIN_DATA_DIR
 
-import logging, os, argparse
+import logging, os, argparse, sys
 
 def run_metadata_crawler(
     target_dir: str = None,
@@ -44,9 +43,6 @@ def run_download_dataset(
         cfg=cfg)
     dirpath = downloader.download(target_dir=target_dir)
     print('roboflow dataset downloaded at', dirpath)
-
-def run_validator():
-    pass
     
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s : %(message)s')
@@ -89,8 +85,9 @@ if __name__ == '__main__':
     if args.download:
         print("running meta crawler..")
         run_metadata_crawler(
-            args.cookie_str, args.workspace_id, 
+            args.target_dir, args.cookie_str, args.workspace_id, 
             args.project_id, args.ann_group)
         
         print("downloading dataset..")
         run_download_dataset(args.api_key)
+    sys.exit(0)

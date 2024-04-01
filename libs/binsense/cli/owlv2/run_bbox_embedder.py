@@ -5,7 +5,7 @@ from ...embed_datastore import SafeTensorEmbeddingDatastore
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
 
-import argparse, logging
+import argparse, logging, sys
 
 def _get_embed_store(
     cfg: DataPrepConfig, 
@@ -59,3 +59,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.generate:
         run_embedder(args.num_bbox_labels, args.batch_size, args.test_run)
+    sys.exit(0)

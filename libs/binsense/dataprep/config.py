@@ -22,6 +22,8 @@ class DataPrepConfig:
     rfmeta_file_path = os.path.join(cfg.BIN_DATA_DIR, 'robo_metadata.csv')
     embed_store_dirpath = os.path.join(cfg.BIN_DATA_DIR, 'embed_store')
     
+    filtered_dataset_path = os.path.join(cfg.BIN_DATA_DIR, 'filtered_dataset')
+    
     roboql_dataset_url='https://app.roboflow.com/query/roboql/dataset'
     robo_workspace = "nitesh-c-eszzc"
     robo_project = "binsense_bbox_mini"

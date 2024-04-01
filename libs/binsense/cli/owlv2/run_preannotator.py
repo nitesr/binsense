@@ -5,7 +5,7 @@ from ...dataprep.config import DataPrepConfig
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
 
-import argparse, logging
+import argparse, logging, sys
 
 def run_annotate(batch_size: int, test_run: bool) -> None:
     model = Owlv2ForObjectDetection(Owlv2Config(**hloader.load_owlv2model_config()))
@@ -46,3 +46,5 @@ if __name__ == '__main__':
         run_create_dataset()
     if args.upload_dataset is not None:
         print("Not supported! can be done manually")
+        sys.exit(1)
+    sys.exit(0)

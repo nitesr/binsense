@@ -12,7 +12,7 @@ def backup_file(file_path: str, bkp_extn: str = 'bkp') -> str:
     dir_path, file_name = os.path.split(file_path)
     bkp_pattern = re.compile(f'.*\.[0-9]+\.bkp$')
     for fname in os.listdir(dir_path):
-        if fname == file_name and bkp_pattern.match(fname):
+        if fname.startswith(file_name) and bkp_pattern.match(fname):
             bkp_number = max(bkp_number, int(fname.split('.')[-2]))
     bkp_number += 1
     shutil.move(file_path, file_path+f'.{bkp_number}.bkp')

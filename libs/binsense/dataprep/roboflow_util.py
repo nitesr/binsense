@@ -1,5 +1,6 @@
 from ..utils import backup_file, get_default_on_none
-from ..dataset_util import Yolov8Deserializer, DataTag, Dataset
+from ..dataset_util import Yolov8Deserializer, \
+    ImageData, DataTag, Dataset, YoloDatasetBuilder, DatasetBuilder
 from .config import DataPrepConfig
 
 from typing import List, Dict, Any
@@ -8,7 +9,8 @@ from roboflow import Roboflow
 from tqdm import tqdm
 
 import pandas as pd
-import requests, re, logging, os
+import numpy as np
+import requests, re, logging, os, random
 
 
 logger = logging.getLogger("__name__")
@@ -56,7 +58,7 @@ class RoboflowCrawler:
             }
         )
         if resp.status_code >= 300:
-            raise ValueError(f'invalid status({resp.status_code}) from server. {resp.text()}')
+            raise ValueError(f'invalid status({resp.status_code}) from server. {resp.text}')
         return resp.json()
     
     def _flush_records(self, records: List[List[Any]], file_path: str, mode: str = 'a'):
@@ -186,7 +188,186 @@ class RoboflowDatasetReader:
             img_extns=['.jpg']
         )
         return ds_reader.read()
+
+class RoboflowDatasetCopier:
+    def __init__(
+        self,
+        target_dirpath: str,
+        crawler_filepath: str,
+        dataset_dirpath: str,
+        dataset_format: str = "yolov8",
+        cfg: DataPrepConfig = None) -> None:
+        """
+        Args:
+            target_dirpath(`str`): dir path to where the filtered dataset need to be stored
+            crawler_filepath(`str`): file path of RoboflowCrawler output
+            dataset_dirpath(`str`): dir path of RoboflowDownloader output
+            dataset_format(`str`): format of the downloaded dataset by RoboflowDownloader
+        """
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
+        self.target_dirpath = get_default_on_none(target_dirpath, self.cfg.filtered_dataset_path)
+        self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path)
+        self.dataset_dirpath = get_default_on_none(dataset_dirpath, self.cfg.dataset_download_path)
+        
+        if not self._validate_exists(self.crawler_filepath, True):
+            raise ValueError(f'{crawler_filepath} doesn\'t exist or is not a file.')
+        
+        if not self._validate_exists(self.dataset_dirpath, False):
+            raise ValueError(f'{dataset_dirpath} doesn\'t exist or is not a dir.')
+        
+        if not dataset_format in SUPPORTED_DATASET_FORMATS:
+            raise ValueError(f'{dataset_format} is not in supported formats - {SUPPORTED_DATASET_FORMATS}')
+        
+        self.dataset_format = dataset_format
+        self.dataset_reader = RoboflowDatasetReader(
+            self.dataset_dirpath, self.dataset_format, self.cfg)
     
+    def _load_rfmeta_and_log_stats(self) -> pd.DataFrame:
+        def calc_prec(portion, total) -> float:
+            return round(portion/total * 100, 1)
+
+        def calc_tag_perc(user_tag, df):
+            if user_tag not in df.columns:
+                return 0
+            cnt_y = df[df[user_tag] == 1].shape[0]
+            return cnt_y, calc_prec(cnt_y, df.shape[0])
+        
+        rf_meta_df = pd.read_csv(self.cfg.rfmeta_file_path, dtype={'image_name': str, 'bbox_label': str})
+        user_tags = ['is_adjusted', 'is_assumed', 'is_blurry', 'is_done', 'is_hard']
+        for user_tag in user_tags:
+            logger.info(f'user_tag={user_tag} percent={calc_tag_perc(user_tag, rf_meta_df)}%')
+        
+        df = rf_meta_df.query('is_done == 1 & is_hard != 1 & is_blurry != 1')
+        logger.info(f'train+val data: {df.shape[0]}({calc_prec(df.shape[0], rf_meta_df.shape[0])}%)')
+        
+        train_cnt = df.query('tag == "train"').shape[0]
+        val_cnt = df.query('tag == "valid"').shape[0]
+        logger.info(f'train_ratio={round(train_cnt/df.shape[0], 1)} valid_ratio={round(val_cnt/df.shape[0], 1)}')
+        return df
+    
+    def _validate_rfmeta_dataset(self, rfmeta_filepath: str):
+        with open(rfmeta_filepath, 'r') as f:
+            header = f.readline()
+        
+        cols = [col.strip() for col in header.strip().split(',')]
+        if (not 'image_name' in cols) \
+            or (not 'is_done' in cols) \
+            or (not 'is_hard' in cols) \
+            or (not 'is_blurry' in cols):
+            raise ValueError(f'mandatory columns [image_name, is_done, is_hard, is_blurry] missing in crawl dataset')
+    
+    def _validate_full_dataset(self, full_dataset: pd.DataFrame):
+        if not isinstance(full_dataset, pd.DataFrame):
+            raise ValueError(f'expecting full_dataset to be a pandas DataFrame')
+        cols = full_dataset.columns
+        if (not 'image_name' in cols) \
+            or (not 'bbox_label' in cols) \
+            or (not 'bbox_count' in cols) \
+            or (not 'tag' in cols):
+            raise ValueError(f'mandatory columns [image_name, tag, bbox_label, bbox_count] missing in full_dataset')
+    
+    def _copy_image_bboxes(
+        self, 
+        src_ds: Dataset, 
+        dst_ds: DatasetBuilder, 
+        src_img_data: ImageData,
+        dst_category_dict: Dict[str, int]) -> int:
+        
+        dst_img_id = dst_ds.add_image(
+            src_img_data.path, src_img_data.tag, 
+            src_img_data.name)
+        bboxes = src_ds.get_bboxes(src_img_data.name)
+        src_cat_names = [bbox.label for bbox in bboxes]
+        src_bbox_arrays = [ bbox.to_array() for bbox in bboxes]
+        dst_cat_ids = [dst_category_dict[name] for name in src_cat_names]
+        dst_ds.add_bboxes(dst_img_id, dst_cat_ids, src_bbox_arrays)
+        return dst_img_id
+    
+    def _filter_testset(
+        self, test_dataset: pd.DataFrame,
+        rfmeta_dataset: pd.DataFrame) -> pd.DataFrame:
+        rf_df = rfmeta_dataset.query('tag != "test"')
+        ts_df = test_dataset[~test_dataset.image_name.isin(rf_df["image_name"])]
+        ts_df = ts_df[ts_df.bbox_label.isin(rf_df['bbox_label'])]
+        ts_df.reset_index(drop=True, inplace=True)
+        return ts_df
+    
+    def _sample_testset(
+        self, test_dataset: pd.DataFrame,
+        rf_meta_images: List[str]) -> pd.DataFrame:
+        req_sample_size = int(len(rf_meta_images) / 0.8 * 0.2)
+        test_images = test_dataset["image_name"].unique()
+        sample_size = min(req_sample_size, len(test_images))
+        if sample_size < req_sample_size:
+            logger.warn(f"testset is under sampled req_sample_size={req_sample_size} sampled={sample_size}")
+        random.shuffle(test_images)
+        sampled_images = test_images[0:sample_size]
+        return test_dataset[test_dataset.image_name.isin(sampled_images)]
+        
+    def _copy_test_dataset(
+        self, test_dataset: pd.DataFrame, 
+        src_ds: Dataset,
+        dst_ds: DatasetBuilder,
+        dst_image_names: List[str],
+        dst_category_dict: Dict[str, int]) -> None:
+        
+        for i in range(test_dataset.shape[0]):
+            test_rec = test_dataset.iloc[i].to_dict()
+            if test_rec['image_name'] in dst_image_names:
+                # ignore if already added
+                continue
+            image_name = test_rec['image_name']
+            image_path = os.path.join(self.cfg.data_split_images_dir, image_name)
+            image_id = dst_ds.add_image(image_path, DataTag.TEST, image_name)
+            
+            # add bounding boxes with coordinates as zeros
+            # for test we don't need coordinates
+            category_name = test_rec['bbox_label']
+            category_id = dst_category_dict[category_name]
+            category_ids = [ category_id ] * test_rec['bbox_count']
+            bboxes = [np.zeros((4,))] * test_rec['bbox_count']
+            dst_ds.add_bboxes(image_id, category_ids, bboxes)
+    
+    def filter_and_copy(self, full_dataset: pd.DataFrame) -> str:
+        self._validate_full_dataset(full_dataset)
+        filtered_ds = YoloDatasetBuilder()
+        dst_category_dict = filtered_ds.add_categories(full_dataset['bbox_label'].unique())
+        
+        # copy all valid images from rf downloaded dataset
+        rf_meta_df = self._load_rfmeta_and_log_stats()
+        rf_meta_images = set(rf_meta_df['image_name'].unique())
+        ds = self.dataset_reader.read()
+        for tag in [ DataTag.TRAIN, DataTag.VALID, DataTag.TEST ]:
+            for img_data in ds.get_images(tag):
+                if img_data.name in rf_meta_images:
+                    self._copy_image_bboxes(ds, filtered_ds, img_data, dst_category_dict)
+        
+        
+        # copy the TEST dataset, which are not annotated
+        test_dataset = full_dataset.query(f'tag == "{DataTag.TEST.value}"').reset_index(drop=True)
+        test_dataset = self._filter_testset(test_dataset, rf_meta_df)
+        test_dataset = self._sample_testset(test_dataset, rf_meta_images)
+        self._copy_test_dataset(test_dataset, ds, filtered_ds, rf_meta_images, dst_category_dict)
+        
+        dst_ds = filtered_ds.build()
+        def get_ds_count(split_tag: DataTag):
+            return len(dst_ds.get_images(split_tag))
+        train_cnt = get_ds_count(DataTag.TRAIN)
+        val_cnt = get_ds_count(DataTag.VALID)
+        test_cnt = get_ds_count(DataTag.TEST)
+        total_cnt =  train_cnt +  val_cnt + test_cnt
+        logger.info(f'filtered dataset train_ratio={round(train_cnt/total_cnt, 1)} valid_ratio={round(val_cnt/total_cnt, 1)} test_ratio={round(test_cnt/total_cnt, 1)}')
+        
+        dst_ds.to_file(self.target_dirpath, format='yolov8')
+        return self.target_dirpath
+    
+    @classmethod
+    def _validate_exists(self, file_path: str, is_file: bool) -> bool:
+        return os.path.exists(file_path) \
+            and os.path.isfile(file_path) if is_file \
+                else os.path.isdir(file_path)
+    
+
 class RoboflowDatasetValidator:
     def __init__(
         self, 
@@ -202,7 +383,7 @@ class RoboflowDatasetValidator:
         """
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
         self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path)
-        self.dataset_dirpath = get_default_on_none(crawler_filepath, self.cfg.dataset_download_path)
+        self.dataset_dirpath = get_default_on_none(dataset_dirpath, self.cfg.dataset_download_path)
         
         if not self._validate_exists(self.crawler_filepath, True):
             raise ValueError(f'{crawler_filepath} doesn\'t exist or is not a file.')
@@ -214,7 +395,8 @@ class RoboflowDatasetValidator:
             raise ValueError(f'{dataset_format} is not in supported formats - {SUPPORTED_DATASET_FORMATS}')
         
         self.dataset_format = dataset_format
-        self.dataset_reader = RoboflowDatasetReader(dataset_dirpath, dataset_format, self.cfg)
+        self.dataset_reader = RoboflowDatasetReader(
+            self.dataset_dirpath, self.dataset_format, self.cfg)
     
     
     @classmethod

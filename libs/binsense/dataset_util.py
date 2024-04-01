@@ -1,4 +1,4 @@
-from .utils import FileIterator, ImageFileIterator
+from .utils import FileIterator, backup_file
 
 from pathlib import Path
 
@@ -26,6 +26,9 @@ class BoundingBox:
     normalized: bool = True
     _label_id: int = None
     _img_id: int = None
+    
+    def to_array(self):
+        return np.array([self.center_x, self.center_y, self.width, self.height])
 
 class DataTag(str, Enum):
     TRAIN = 'train'
@@ -63,7 +66,7 @@ class Dataset:
     def get_labels(self, img_name: str) -> List[LabelData]:
         pass
     
-    def to_file(self, file_path: str, format: str = None) -> None:
+    def to_file(self, file_path: str, format: str = None, exclude_tags: List[DataTag] = []) -> None:
         pass
 
 
@@ -173,11 +176,11 @@ class YoloDataset(Dataset):
             filtered_labels.append(self.categories[bbox.label])
         return filtered_labels
     
-    def to_file(self, file_path: str, format: str = 'v8') -> None:
-        if format == 'v8':
-            Yolov8Serializer(self).to_file(file_path)
-        elif format == 'v1':
-            Yolov1Serializer(self).to_file(file_path)
+    def to_file(self, file_path: str, format: str = 'yolov8', exclude_tags: List[DataTag] = []) -> None:
+        if format == 'yolov8':
+            Yolov8Serializer(self).to_file(file_path, exclude_tags)
+        elif format == 'yolov1':
+            Yolov1Serializer(self).to_file(file_path, exclude_tags)
         else:
             raise ValueError(f'{format} is not supported!')
 
@@ -192,8 +195,8 @@ class Yolov8Deserializer(YoloDeserializer):
     def __init__(
         self, 
         dir_path: str, 
-        image_name_extractor: Callable[[str], str],
-        label_name_extractor: Callable[[str], str],
+        image_name_extractor: Callable[[str], str] = None,
+        label_name_extractor: Callable[[str], str] = None,
         img_extns: List[str] = None) -> None:
         super(Yolov8Deserializer, self).__init__(dir_path)
         
@@ -214,7 +217,7 @@ class Yolov8Deserializer(YoloDeserializer):
         with open(index_file, 'r') as f:
             data = yaml.safe_load(f)
         # label_count = data['nc']
-        labels = data['names']
+        labels =  data['names'].values() if isinstance(data['names'], dict) else data['names']
         clean_labels = []
         for l in labels:
             clean_l = self.label_name_extractor(l)
@@ -229,9 +232,9 @@ class Yolov8Deserializer(YoloDeserializer):
             return ds_path.replace('..', self.dir_path)
             
         return {\
-            DataTag.TRAIN: _to_abs_path(data['train']), 
-            DataTag.VALID: _to_abs_path(data['val']), 
-            DataTag.TEST: _to_abs_path(data['test'])
+            DataTag.TRAIN: _to_abs_path(data['train']) if 'train' in data.keys() else None, 
+            DataTag.VALID: _to_abs_path(data['val']) if 'val' in data.keys() else None, 
+            DataTag.TEST: _to_abs_path(data['test']) if 'test' in data.keys() else None
         }
     
     def _interpret_ann_line(self, line: str, img_id: int) -> None:
@@ -291,10 +294,12 @@ class Yolov8Deserializer(YoloDeserializer):
         ds_dict = self._read_index(os.path.join(self.dir_path, 'data.yaml'))
         
         for tag, ds_path in ds_dict.items():
-            if os.path.exists(ds_path):
+            if ds_path and os.path.exists(ds_path):
                 self._read_data(ds_path, tag)
-            else:
+            elif ds_path:
                 logger.warn(f'missing dataset path - {ds_path}')
+            else:
+                logger.info(f'missing dataset for {tag}')
         
         return self.builder.build()
 
@@ -311,6 +316,12 @@ class YoloSerializer:
     def _get_bboxes(self, img_id: int) -> List[BoundingBox]:
         return self.dataset.bboxes[img_id]
     
+    def _prepare_root_path(self, root_path: str) -> None:
+        if os.path.exists(root_path):
+            bkp_file = backup_file(root_path)
+            logger.info(f"backing up {root_path} to {bkp_file}")
+            os.makedirs(root_path)
+        
     def _make_dir(self, root_path, tag):
         tag_path = os.path.join(root_path, tag)
         tag_images_path = os.path.join(tag_path, 'images')
@@ -321,7 +332,8 @@ class YoloSerializer:
     def _make_tag_dirs(self, root_path):
         return ( \
             self._make_dir(root_path, "train"),
-            self._make_dir(root_path, "valid")
+            self._make_dir(root_path, "valid"),
+            self._make_dir(root_path, "test")
         )
     
     def _images_path(self, root_path, tag: DataTag):
@@ -352,7 +364,7 @@ class YoloSerializer:
                 f.write('\n')
         return ann_file
     
-    def to_file(self, file_path: str) -> None:
+    def to_file(self, file_path: str, exclude_tags: List[DataTag] = []) -> None:
         pass
 
 class Yolov1Serializer(YoloSerializer):
@@ -391,13 +403,14 @@ class Yolov1Serializer(YoloSerializer):
                 f.write(f'data/valid/images/{tail}')
                 f.write('\n')
     
-    def to_file(self, file_path: str) -> None:
+    def to_file(self, file_path: str, exclude_tags: List[DataTag] = []) -> None:
         root_path = file_path
+        self._prepare_root_path(root_path)
         self._make_tag_dirs(root_path)
         
         img_path_dict = dict({DataTag.TRAIN: [], DataTag.VALID: []})
         for img_data in self._get_images():
-            if img_data.tag == DataTag.TEST:
+            if img_data.tag in exclude_tags:
                 continue
             bboxes_data = self._get_bboxes(img_data.id)
             img_path = self._move_image(root_path, img_data)
@@ -424,12 +437,13 @@ class Yolov8Serializer(YoloSerializer):
                 f.write(f" {i}: '{l.name}'\n")
             f.write('\n')
     
-    def to_file(self, file_path: str) -> None:
+    def to_file(self, file_path: str, exclude_tags: List[DataTag] = []) -> None:
         root_path = file_path
+        self._prepare_root_path(root_path)
         self._make_tag_dirs(root_path)
         
         for img_data in self._get_images():
-            if img_data.tag == DataTag.TEST:
+            if img_data.tag in exclude_tags:
                 continue
             bboxes_data = self._get_bboxes(img_data.id)
             self._move_image(root_path, img_data)

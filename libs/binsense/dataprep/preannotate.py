@@ -122,7 +122,7 @@ class Preannotator:
         
         dl_progress_bar = tqdm(total=len(train_ds), desc="predicting bboxes", file=open(os.devnull, 'w'))
         logger.info(str(dl_progress_bar))
-        progress_step = len(train_ds) // 10
+        progress_step = len(train_ds) // 5
         for _, x in train_dl:
             scores, bboxes = self._predict_bboxes(x)
             for i in range(0, len(bboxes)):
@@ -196,5 +196,5 @@ class RoboflowUploadBuilder:
         
         logger.info(f'processed {linecnt} records and {len(labels)} labels.')
         upload_dir = self._prepare_uploaddir(dir_path)
-        ds_builder.build().to_file(upload_dir, format='v8')
+        ds_builder.build().to_file(upload_dir, format='yolov8', exclude_tags=[DataTag.TEST])
         return upload_dir

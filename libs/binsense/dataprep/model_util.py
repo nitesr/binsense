@@ -64,6 +64,10 @@ class Owlv2BBoxEmbedder(BBoxEmbedder):
         return self._processor
     
     def forward(self, bboxes: torch.Tensor) -> torch.Tensor:
+        # TODO: instead of max score, try with 
+        #   highest IOU with actual image size
+        #   normalized over pre-processed image size.
+        #   i.e. (0, 0, im_w/960, im_h/960)
         vit_embeddings = self.model.image_embedder(bboxes)[0] # B x C x 960 x 960 -> B x 3600 x 768
         class_embeddings = self.model.class_predictor(vit_embeddings)[1] # B x 3600 x 768 -> B x 3600 x 512
         object_logits = self.model.objectness_predictor(vit_embeddings) # B x 3600 x 768 -> B x 3600

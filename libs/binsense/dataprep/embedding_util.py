@@ -61,7 +61,7 @@ class BBoxDatasetEmbedder:
             total=len(torch_ds), 
             desc="generating embeddings", file=open(os.devnull, 'w'))
         logger.info(str(progress_bar))
-        progress_step = len(torch_ds) // 10
+        progress_step = len(torch_ds) // 5
         for batch_idx, x in enumerate(torch_dl):
             with torch.no_grad():
                 bbox_embeddings = self.model(x)# B x 512
