@@ -1,6 +1,11 @@
-from typing import Any, Optional, List
+from typing import Any, Optional, List, TypeVar
 from pathlib import Path
 import os, shutil, re
+
+T = TypeVar("T")
+
+def get_default_on_none(val: T, default_val: T) -> T:
+    return val if val is not None else default_val
 
 def backup_file(file_path: str, bkp_extn: str = 'bkp') -> str:
     bkp_number = 0

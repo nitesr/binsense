@@ -1,23 +1,22 @@
 
-from ..dataprep.preannotate import Preannotator, RoboflowUploadBuilder
-from ..dataprep.preannotate import Owlv2BboxPredictor
-from ..dataprep.config import DataPrepConfig
-from ..dataprep.dataset import BinDataset
-from ..owlv2 import Owlv2ForObjectDetection, Owlv2Config
-from ..owlv2 import hugg_loader as hloader
+from ...dataprep.preannotate import Preannotator, RoboflowUploadBuilder
+from ...dataprep.model_util import Owlv2BboxPredictor
+from ...dataprep.config import DataPrepConfig
+from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
+from ...owlv2 import hugg_loader as hloader
 
 import argparse, logging
 
-def run_annotate(batch_size):
+def run_annotate(batch_size: int, test_run: bool) -> None:
     model = Owlv2ForObjectDetection(Owlv2Config(**hloader.load_owlv2model_config()))
     model.load_state_dict(hloader.load_owlv2model_statedict())
     bbox_predictor = Owlv2BboxPredictor(model=model)
     cfg = DataPrepConfig()
-    annotator = Preannotator(bbox_predictor, BinDataset, cfg)
-    chkpt_files = annotator.preannotate(batch_size)
+    annotator = Preannotator(bbox_predictor, cfg)
+    chkpt_files = annotator.preannotate(batch_size, test_run)
     print("checkpoint at", chkpt_files)
 
-def run_create_dataset():
+def run_create_dataset() -> None:
     builder = RoboflowUploadBuilder(DataPrepConfig())
     upload_path = builder.build()
     print("built at", upload_path)
@@ -29,7 +28,10 @@ if __name__ == '__main__':
         "--annotate", help="preannotate using owlv2 model",
         action="store_true")
     parser.add_argument(
-        "--batch_size", help="batch size for the model", default=8)
+        "--batch_size", help="batch size for the model", default=8, type=int)
+    parser.add_argument(
+        "--test_run", help="do a test run",
+        action="store_true")
     parser.add_argument(
         "--create_dataset", help="creates the preannotated dataset in Yolov8 format",
         action="store_true")
@@ -37,10 +39,9 @@ if __name__ == '__main__':
         "--upload_dataset", help="uploads the preannotated dataset to roboflow")
     
     args = parser.parse_args()
-    batch_size = args.batch_size
     
     if args.annotate:
-        run_annotate(batch_size)
+        run_annotate(args.batch_size, args.test_run)
     if args.create_dataset:
         run_create_dataset()
     if args.upload_dataset is not None:

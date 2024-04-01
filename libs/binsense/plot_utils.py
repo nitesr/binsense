@@ -11,7 +11,7 @@ def plot_bboxes(
     cv_img: np.ndarray, 
     bboxes: np.ndarray,
     labels: List[str],
-    ax: Axes = plt.gca(),
+    ax: Axes = None,
     title: str=None):
     """
     draws the bounding boxes on the cv image
@@ -19,6 +19,9 @@ def plot_bboxes(
     Args:
     
     """
+    if ax is None:
+        ax = plt.gca()
+    
     draw_img = cv_img.copy()
     if not bboxes:
         return

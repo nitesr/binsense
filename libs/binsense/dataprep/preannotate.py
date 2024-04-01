@@ -92,10 +92,13 @@ class Preannotator:
                     bbox_idx += 1
             f.write('\n')
     
-    def preannotate(self, batch_size=None):
+    def preannotate(self, batch_size=None, test_run=None):
         
         if batch_size is None:
             batch_size = self.cfg.batch_size
+            
+        if test_run is None:
+            test_run = self.test_run
         
         bin_df, item_df, labels =  self.ts_loader.load()
         self._prepare_chkpt_files()
@@ -103,9 +106,10 @@ class Preannotator:
         self._save_labels(labels)
         image_names = bin_df['image_name'].tolist()
         image_names = image_names[0:10] if self.test_run else image_names
-        train_ds = BinDataset(image_names, images_dir=self.cfg.data_split_images_dir)
+        train_ds = BinDataset(image_names, 
+            preprocessor=self.model.processor(), 
+            images_dir=self.cfg.data_split_images_dir)
         train_dl = DataLoader(train_ds, batch_size=batch_size, pin_memory=True)
-        
         
         label_dict = YoloDatasetBuilder().add_categories(labels)
         chkpoint_file = os.path.join(self.cfg.bbox_chkpt_filepath)
@@ -115,13 +119,19 @@ class Preannotator:
         
         self.model.eval()
         record_idx = 0
-        dl_progress_iter = tqdm(train_dl, desc="predicting bboxes", file=open(os.devnull, 'w'))
-        for x in dl_progress_iter:
+        
+        dl_progress_bar = tqdm(total=len(train_ds), desc="predicting bboxes", file=open(os.devnull, 'w'))
+        logger.info(str(dl_progress_bar))
+        progress_step = len(train_ds) // 10
+        for _, x in train_dl:
             scores, bboxes = self._predict_bboxes(x)
             for i in range(0, len(bboxes)):
                 self._save_result(record_idx, bin_df, item_df, label_dict, scores[i], bboxes[i])
                 record_idx += 1
-            logger.info(str(dl_progress_iter))
+            dl_progress_bar.update(len(x))
+            if dl_progress_bar.n >= progress_step:
+                progress_step += dl_progress_bar.n
+                logger.info(str(dl_progress_bar))
         
         return self.cfg.label_chkpt_filepath, self.cfg.bbox_chkpt_filepath
 

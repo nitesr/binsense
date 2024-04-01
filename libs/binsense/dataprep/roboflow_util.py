@@ -1,5 +1,6 @@
-from ..utils import backup_file
+from ..utils import backup_file, get_default_on_none
 from ..dataset_util import Yolov8Deserializer, DataTag, Dataset
+from .config import DataPrepConfig
 
 from typing import List, Dict, Any
 from re import Pattern
@@ -9,40 +10,31 @@ from tqdm import tqdm
 import pandas as pd
 import requests, re, logging, os
 
+
 logger = logging.getLogger("__name__")
 SUPPORTED_DATASET_FORMATS = ['yolov8']
 
 class RoboflowCrawler:
     def __init__(
         self, 
-        project_id: str, 
-        workspace_id: str, 
-        cookie_str: str,
-        target_path: str = './robo_meta.csv',
-        annotation_group: str = "bins",
-        check_tags: List[Dict[str, str]] = None) -> None:
+        project_id: str = None, 
+        workspace_id: str = None, 
+        cookie_str: str = None,
+        target_path: str = None,
+        annotation_group: str = None,
+        check_tags: List[Dict[str, str]] = None,
+        cfg: DataPrepConfig = None
+    ) -> None:
+        
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
         
         self.cookie_str = cookie_str
-        self.workspace_id = workspace_id
-        self.project_id = project_id
-        self.roboql_url = 'https://app.roboflow.com/query/roboql/dataset'
-        self.ann_group = annotation_group
-        self.target_fpath = target_path
-        
-        if check_tags is None:
-            self.check_tags = [
-                ('jithu', re.compile('jithu[-0-9]{0,}')),
-                ('mythili', re.compile('mythili[-0-9]{0,}')),
-                ('nitesh', re.compile('nitesh[-0-9]{0,}')),
-                ('raghu', re.compile('nitesh[-0-9]{0,}')),
-                ('adjusted', re.compile('adjusted')),
-                ('assumed', re.compile('(assume[d]{0,1}|assumption)')),
-                ('blurry', re.compile('(blurry|blurred|blur)')),
-                ('done', re.compile('(done|dome|donne|completed|complete|finished|finish)')),
-                ('hard', re.compile('(hard|hardy|very hard|hardest)'))
-            ]
-        else:
-            self.check_tags = []
+        self.workspace_id = get_default_on_none(workspace_id, self.cfg.robo_workspace_id)
+        self.project_id = get_default_on_none(project_id, self.cfg.robo_project_id)
+        self.roboql_url = self.cfg.roboql_dataset_url
+        self.ann_group = get_default_on_none(annotation_group, self.cfg.robo_ann_group)
+        self.target_fpath = get_default_on_none(target_path, self.cfg.rfmeta_file_path)
+        self.check_tags = get_default_on_none(check_tags, self.cfg.robo_meta_check_tags)
     
     def _has_this_tag(self, pattern: Pattern, user_tags: List[str]):
         for t in user_tags:
@@ -54,15 +46,17 @@ class RoboflowCrawler:
         resp = requests.post(
             self.roboql_url,
             headers={'Cookie': self.cookie_str},
-            json={\
-                  "annotationGroup": self.ann_group, 
-                  "pageSize": page_size, 
-                  "projectId": self.project_id, 
-                  "query": " sort:filename", 
-                  "startingIndex": start_index, 
-                  "workspaceId": self.workspace_id
+            json={ \
+                "annotationGroup": self.ann_group, 
+                "pageSize": page_size, 
+                "projectId": self.project_id, 
+                "query": " sort:filename", 
+                "startingIndex": start_index, 
+                "workspaceId": self.workspace_id
             }
         )
+        if resp.status_code >= 300:
+            raise ValueError(f'invalid status({resp.status_code}) from server. {resp.text()}')
         return resp.json()
     
     def _flush_records(self, records: List[List[Any]], file_path: str, mode: str = 'a'):
@@ -97,6 +91,7 @@ class RoboflowCrawler:
             total=total,
             file=open(os.devnull, 'w'),
             desc="crawling roboflow.com")
+        logger.info(str(progress_bar))
         while offset < total:
             data = self._fetch_results(offset, page_size)
             if not data['success']:
@@ -132,21 +127,24 @@ class RoboflowCrawler:
         logger.info(str(progress_bar))
         return file_path
 
+
 class RoboflowDownloader:
     def __init__(
         self, 
-        workspace: str = 'nitesh-c-eszzc', 
-        project: str = 'binsense_bbox_mini',
-        version: int = 1,
-        api_key: str = None) -> None:
-        self.workspace = workspace
-        self.project = project
-        self.version = version
-        self.api_key = os.environ.get('ROBOFLOW_MY_API_KEY') if api_key is None\
-            else api_key
+        workspace: str = None, 
+        project: str = None,
+        version: int = None,
+        api_key: str = None,
+        cfg: DataPrepConfig = None) -> None:
+        
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
+        self.workspace = get_default_on_none(workspace, self.cfg.robo_workspace)
+        self.project = get_default_on_none(project, self.cfg.robo_project)
+        self.version = get_default_on_none(version, self.cfg.robo_dataset_version)
+        self.api_key = get_default_on_none(api_key, os.environ.get('ROBOFLOW_MY_API_KEY'))
     
-    def download(self, target_dir='.', format: str = "yolov8") -> str:
-        dir_path = target_dir
+    def download(self, target_dir: str = None, format: str = "yolov8") -> str:
+        dir_path = get_default_on_none(target_dir, self.cfg.dataset_download_path)
         if os.path.exists(dir_path):
             bkp_dir = backup_file(dir_path)
             logger.info(f"backing up {dir_path} to {bkp_dir}")
@@ -162,8 +160,14 @@ class RoboflowDownloader:
         return dataset.location
 
 class RoboflowDatasetReader:
-    def __init__(self, dataset_dirpath: str, format: str ='yolov8') -> None:
-        self.dataset_dirpath = dataset_dirpath
+    def __init__(
+        self, 
+        dataset_dirpath: str = None, 
+        format: str ='yolov8',
+        cfg: DataPrepConfig = None) -> None:
+        
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
+        self.dataset_dirpath = get_default_on_none(dataset_dirpath, self.cfg.dataset_download_path)
         self.label_extractor_pattern = re.compile('^[^-]+')
     
     def read(self) -> Dataset:
@@ -188,27 +192,29 @@ class RoboflowDatasetValidator:
         self, 
         crawler_filepath: str,
         dataset_dirpath: str,
-        dataset_format: str = "yolov8") -> None:
+        dataset_format: str = "yolov8",
+        cfg: DataPrepConfig = None) -> None:
         """
         Args:
             crawler_filepath(`str`): file path of RoboflowCrawler output
             dataset_dirpath(`str`): dir path of RoboflowDownloader output
             dataset_format(`str`): format of the downloaded dataset by RoboflowDownloader
         """
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
+        self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path)
+        self.dataset_dirpath = get_default_on_none(crawler_filepath, self.cfg.dataset_download_path)
         
-        if not self._validate_exists(crawler_filepath, True):
+        if not self._validate_exists(self.crawler_filepath, True):
             raise ValueError(f'{crawler_filepath} doesn\'t exist or is not a file.')
         
-        if not self._validate_exists(dataset_dirpath, False):
+        if not self._validate_exists(self.dataset_dirpath, False):
             raise ValueError(f'{dataset_dirpath} doesn\'t exist or is not a dir.')
         
         if not dataset_format in SUPPORTED_DATASET_FORMATS:
             raise ValueError(f'{dataset_format} is not in supported formats - {SUPPORTED_DATASET_FORMATS}')
         
-        self.crawler_filepath = crawler_filepath
-        self.dataset_dirpath = dataset_dirpath
         self.dataset_format = dataset_format
-        self.dataset_reader = RoboflowDatasetReader(dataset_dirpath, dataset_format)
+        self.dataset_reader = RoboflowDatasetReader(dataset_dirpath, dataset_format, self.cfg)
     
     
     @classmethod
@@ -275,7 +281,7 @@ class RoboflowDatasetValidator:
         self._validate_full_dataset(full_dataset)
         self._validate_crawl_dataset(self.crawler_filepath)
         
-        rfds_df = self._load_downloaded_dataset(self.dataset_dirpath)
+        rfds_df = self._load_downloaded_dataset()
         rf_df = pd.read_csv(self.crawler_filepath, 
                     dtype={'image_name': str, 'bbox_label': str})
         full_df = full_dataset

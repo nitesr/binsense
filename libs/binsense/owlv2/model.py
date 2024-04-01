@@ -254,12 +254,17 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
     ) -> Tuple[torch.FloatTensor]:
         """
         Args:
-            image_feats:
-                Features extracted from the `image_text_embedder`.
+            image_feats: (`torch.FloatTensor` of shape `(batch_size, num_patches, hidden_dim)`)):
+                Features extracted from the `image_embedder`.
             query_embeds:
                 Text query embeddings.
             query_mask:
                 Must be provided with query_embeddings. A mask indicating which query embeddings are valid.
+        Returns:
+            Tuple[pred_logits (`torch.FloatTensor`), image_class_embeds (`torch.FloatTensor`)]:
+                pred_logits - logits of size B x NUM_PATCHES 
+                image_class_embeds - class embeddings of size B x NUM_PATCHES x CLASS_EMBED_SIZE
+                    NUM_PATCHES & CLASS_EMBED_SIZE are based on config. typically - 3600 & 512.
         """
         (pred_logits, image_class_embeds) = self.class_head(image_feats, query_embeds, query_mask)
 
@@ -269,10 +274,10 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         """Predicts the probability that each image feature token is an object.
 
         Args:
-            image_features (`torch.FloatTensor` of shape `(batch_size, num_patches, hidden_dim)`)):
-                Features extracted from the image.
+            image_features (`torch.FloatTensor` of shape `(batch_size, num_patches, hidden_dim)`):
+                Features extracted from the `image_embedder`.
         Returns:
-            Objectness scores.
+            Objectness scores(`torch.FloatTensor` of shape `(batch_size, num_patches)`)
         """
         image_features = image_features.detach()
         objectness_logits = self.objectness_head(image_features)
@@ -285,10 +290,8 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
     ) -> torch.FloatTensor:
         """
         Args:
-            image_feats:
-                Features extracted from the image, returned by the `image_text_embedder` method.
-            feature_map:
-                A spatial re-arrangement of image_features, also returned by the `image_text_embedder` method.
+            image_feats: (`torch.FloatTensor` of shape `(batch_size, num_patches, hidden_dim)`)):
+                Features extracted from the `image_embedder`.
         Returns:
             pred_boxes:
                 List of predicted boxes (cxcywh normalized to 0, 1) nested within a dictionary.
@@ -308,6 +311,18 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
     ) -> Tuple[torch.FloatTensor]:
+        """
+        embeds the image pixels using ViT
+        Args:
+            pixel_values (`torch.FloatTensor`): 
+                image pixles in B x C x W x H
+                W x H is based on the config - typically 960 x 960
+        Returns:
+            Tuple[image_embeds (`torch.FloatTensor`), vision_outputs (`torch.FloatTensor`)]:
+                image_embeds - embeddings of size B x NUM_PATCHES x EMBED_SIZE
+                    NUM_PATCHES & EMBED_SIZE are based on config - typically 3600 & 768
+                vision_outputs - 
+        """
         # Get Owlv2Model vision embeddings (same as CLIP)
         # ignoring output_attentions and output_hidden_states to vision_model pass
         vision_outputs = self.vision_model(pixel_values=pixel_values, return_dict=True)

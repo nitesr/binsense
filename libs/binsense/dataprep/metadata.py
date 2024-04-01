@@ -1,6 +1,5 @@
-from .config import BIN_S3_DOWNLOAD_IMAGES_DIR as IMAGES_DIR
-from .config import BIN_S3_DOWNLOAD_META_DIR as ANN_DIR
-from .utils import default_on_none
+from ..utils import default_on_none, get_default_on_none
+from .config import DataPrepConfig
 
 from PIL import Image
 from tqdm import tqdm 
@@ -19,10 +18,10 @@ class BinMetadataLoader:
     key method is `load`
     """
     
-    def __init__(self) -> None:
-        pass
+    def __init__(self, cfg: DataPrepConfig = None) -> None:
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
 
-    def load(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def load(self, source_dir : str = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Loads the downloaded bin meta-data to pandas dataframes.
         
@@ -35,6 +34,14 @@ class BinMetadataLoader:
                 'item_width_unit', 'item_height', 'item_height_unit', \
                 'item_weight', 'item_weight_unit']
         """
+        ann_dir = self.cfg.data_split_labels_dir
+        img_dir = self.cfg.data_split_images_dir
+        
+        if source_dir is not None and source_dir != self.cfg.raw_data_root_dir:
+            ann_dir = os.path.join(
+                source_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
+            img_dir = os.path.join(
+                source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
         
         bin_df = pd.DataFrame(columns=[
             'bin_id', 'bin_qty', 'bin_image_name', 
@@ -47,13 +54,14 @@ class BinMetadataLoader:
             'item_height', 'item_height_unit', 
             'item_weight', 'item_weight_unit'])
 
-        ann_files = os.listdir(ANN_DIR)
+        ann_files = os.listdir(ann_dir)
         progress_step = len(ann_files) // 10
-        ann_progress_iter = tqdm(
-            ann_files, 
+        progress_bar = tqdm(
+            total=len(ann_files), 
             desc="loading bin-metadata", file=open(os.devnull, 'w'))
-        for i, f_name in enumerate(ann_progress_iter):
-            meta_path = os.path.join(ANN_DIR, f_name)
+        logger.info(str(progress_bar))
+        for f_name in ann_files:
+            meta_path = os.path.join(ann_dir, f_name)
             if not os.path.isfile(meta_path):
                 continue
 
@@ -62,8 +70,8 @@ class BinMetadataLoader:
             
             bin_id = f_name[0:f_name.rfind('.')]
             bin_qty = metadata['EXPECTED_QUANTITY']
-            bin_image_name = f'{bin_id}.jpg'
-            img_path = os.path.join(IMAGES_DIR, bin_image_name)
+            bin_image_name = f'{bin_id}{self.cfg.raw_data_img_extn}'
+            img_path = os.path.join(img_dir, bin_image_name)
             bin_img_kb = round(os.stat( img_path).st_size / 1024, 1)
             bin_img_width, bin_img_height = Image.open(img_path).size
             
@@ -86,15 +94,17 @@ class BinMetadataLoader:
                         default_on_none(item_dict, ['height', 'unit']),
                         default_on_none(item_dict, ['weight','value'], float("nan")), 
                         default_on_none(item_dict, ['weight', 'unit'])]
-                if i == progress_step:
-                    progress_step += i
-                    logger.info(str(ann_progress_iter))
             except Exception as e:
                 traceback.print_exc()
                 logger.error(f"failed {bin_id}", exc_info=1)
-        logger.info(str(ann_progress_iter))
+            
+            progress_bar.update()
+            if progress_bar.n >= progress_step:
+                progress_step += progress_bar.n
+                logger.info(str(progress_bar))
+        logger.info(str(progress_bar))
 
         return bin_df, item_df
 
-def load() -> Tuple[pd.DataFrame, pd.DataFrame]:
-    return BinMetadataLoader().load()
+def load(source_dir: str = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    return BinMetadataLoader().load(source_dir)

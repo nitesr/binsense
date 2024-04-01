@@ -1,9 +1,8 @@
-from .config import BIN_S3_DOWNLOAD_DIR
-from .config import BIN_S3_DOWNLOAD_IMAGES_DIR
-from .config import BIN_S3_DOWNLOAD_META_DIR
-from .config import BIN_S3_BUCKET
-from .config import IK_DATA_INDEX_FILENAME
-from . import resources as data
+from ..config import BIN_S3_BUCKET
+from ..config import IK_DATA_INDEX_FILENAME
+from .. import resources as data
+from .config import DataPrepConfig
+from ..utils import get_default_on_none
 
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -13,26 +12,30 @@ from typing import Optional
 
 import boto3, os, time
 
-# TODO: seperate the dirty marker into its own class
-#   can be resued when preparing subsequent data transformations
-MARK_FILE_PATH = os.path.join(BIN_S3_DOWNLOAD_DIR, 'downloader_mark.dat')
 class BinS3DataDownloader:
     """
     Downloads the bin data from the S3 based on the IK shared index file.
     key method is `download`
     """
     
-    def __init__(self) -> None:
-        pass
+    def __init__(self, cfg: DataPrepConfig) -> None:
+        self.cfg = get_default_on_none(cfg, DataPrepConfig())
+        self.mark_fpath = os.path.join(self.cfg.raw_data_root_dir, 'downloader_mark.dat')
 
-    def _prepare(self):
+    def _prepare(self, target_dir : str = None):
         """
         creates necessary directories to download to.
         """
-        images_dir = BIN_S3_DOWNLOAD_IMAGES_DIR
-        meta_dir = BIN_S3_DOWNLOAD_META_DIR
+        meta_dir = self.cfg.data_split_labels_dir
+        images_dir = self.cfg.data_split_images_dir
+        if target_dir is not None and target_dir != self.cfg.raw_data_root_dir:
+            meta_dir = os.path.join(
+                target_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
+            images_dir = os.path.join(
+                target_dir, os.path.split(self.cfg.data_split_images_dir)[1])
         os.makedirs(images_dir, exist_ok=True)
         os.makedirs(meta_dir, exist_ok=True)
+        return images_dir, meta_dir
 
     def _validate(self):
         """
@@ -42,22 +45,24 @@ class BinS3DataDownloader:
             .joinpath(IK_DATA_INDEX_FILENAME).is_file():
                 raise ValueError(f'.resources.{IK_DATA_INDEX_FILENAME} missing!')
 
+    # TODO: seperate the dirty marker into its own class
+    #   can be resued when preparing subsequent data transformations
     def _mark(self):
         """
         marks the current downloaded time
         """
-        with open(MARK_FILE_PATH, 'w+') as f:
+        with open(self.mark_fpath, 'w+') as f:
             f.write(str(int(time.time())))
 
     def _read_mark(self):
         """
         reads the last downloaded time
         """
-        if not os.path.exists(MARK_FILE_PATH):
+        if not os.path.exists(self.mark_fpath):
             # return oldest epoch
             return 0 
         
-        with open(MARK_FILE_PATH, 'r') as f:
+        with open(self.mark_fpath, 'r') as f:
             dt = f.readline()
             return int(dt)
 
@@ -82,7 +87,7 @@ class BinS3DataDownloader:
         """
         self._validate()
         
-        self._prepare()
+        image_dir, meta_dir = self._prepare()
         
         if (not force) and (not self._is_dirty()):
             return
@@ -96,12 +101,12 @@ class BinS3DataDownloader:
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         for image_name in tqdm(image_names, desc="downloading bin data"):
             image_name = image_name.strip()
-            target_image_file = os.path.join(BIN_S3_DOWNLOAD_IMAGES_DIR, f'{image_name}.jpg')
-            target_metadata_file = os.path.join(BIN_S3_DOWNLOAD_META_DIR, f'{image_name}.json')
+            target_image_file = os.path.join(image_dir, f'{image_name}{self.cfg.raw_data_img_extn}')
+            target_metadata_file = os.path.join(meta_dir, f'{image_name}.json')
             
             if not os.path.exists(target_image_file):
                 with open(target_image_file, 'wb') as f:
-                    s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{image_name}.jpg', f)
+                    s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{image_name}{self.cfg.raw_data_img_extn}', f)
             
             if not os.path.exists(target_metadata_file):
                 with open(target_metadata_file, 'wb') as f:

@@ -92,6 +92,7 @@ class Owlv2VisionConfig(LocalPretainedConfig):
         attention_dropout=0.0,
         initializer_range=0.02,
         initializer_factor=1.0,
+        class_embed_size=512,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -108,6 +109,7 @@ class Owlv2VisionConfig(LocalPretainedConfig):
         self.attention_dropout = attention_dropout
         self.initializer_range = initializer_range
         self.initializer_factor = initializer_factor
+        self.class_embed_size = class_embed_size
 
     # TODO: analyze it and remove it
     # @classmethod
