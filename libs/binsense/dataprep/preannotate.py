@@ -1,6 +1,6 @@
 from .config import DataPrepConfig
 from .dataset import BinDataset
-from .model_util import BboxPredictor
+from .model_spec import BboxPredictor
 from ..utils import backup_file
 from ..dataset_util import YoloDatasetBuilder, DataTag
 

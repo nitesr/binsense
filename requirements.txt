@@ -17,3 +17,5 @@ huggingface_hub==0.21.4
 safetensors==0.4.2
 roboflow==roboflow-1.1.24
 uhashring==2.3
+lightning==2.2.1
+pytorch-lightning==2.2.1

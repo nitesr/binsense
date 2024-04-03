@@ -1,7 +1,7 @@
 from .config import DataPrepConfig
 from ..dataset_util import DataTag, Dataset as BinsenseDataset
 from .roboflow_util import RoboflowDatasetReader
-from .model_util import BBoxEmbedder
+from .model_spec import BBoxEmbedder
 from ..embed_datastore import EmbeddingDatastore
 from .dataset import BestBBoxDataset
 

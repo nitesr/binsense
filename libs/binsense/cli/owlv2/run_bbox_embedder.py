@@ -1,11 +1,18 @@
 from ...dataprep.embedding_util import BBoxDatasetEmbedder
-from ...dataprep.model_util import Owlv2BBoxEmbedder
+from ...dataprep.owl_wrappper import Owlv2BBoxEmbedder
 from ...dataprep.config import DataPrepConfig
 from ...embed_datastore import SafeTensorEmbeddingDatastore
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
 
 import argparse, logging, sys
+
+"""
+usage on shell:
+```
+nohup python -m binsense.cli.owlv2.run_bbox_embedder --generate > ./_logs/run_bbbox_embedder.log &
+```
+"""
 
 def _get_embed_store(
     cfg: DataPrepConfig, 

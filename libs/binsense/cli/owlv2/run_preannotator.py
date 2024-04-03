@@ -1,6 +1,6 @@
 
 from ...dataprep.preannotate import Preannotator, RoboflowUploadBuilder
-from ...dataprep.model_util import Owlv2BboxPredictor
+from ...dataprep.owl_wrappper import Owlv2BboxPredictor
 from ...dataprep.config import DataPrepConfig
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
