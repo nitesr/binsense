@@ -1,4 +1,4 @@
-#!/usr/bin/env bash --login
+#!/usr/bin/env bash
 
 function set_dirs () {
     local SOURCE=${BASH_SOURCE[0]}
@@ -25,11 +25,15 @@ function usage() {
 # provides CUR_DIR and SCRIPT_DIR variables
 set_dirs
 projDir="$(dirname "$SCRIPT_DIR")"
+echo "script_dir=$SCRIPT_DIR"
+echo "proj_dir=$projDir"
+echo "cur_dir=$CUR_DIR"
 if [ ! -d $projDir ]; then
     echo "couldn't find the project directory @ $projDir"
 fi
 
-condaFileName=$projDir/conda-environment.yml
+condaFileName="conda-environment.yml"
+echo "condaFileName=$condaFileName"
 
 CREATE_ENV=1
 CLEAN_ENV=0
@@ -48,6 +52,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 condaFilePath=$projDir/$condaFileName
+echo "condaFilePath=$condaFilePath"
 if [ ! -f $condaFilePath ]; then
     echo "couldn't find the conda environment file @ $condaFilePath"
 fi
