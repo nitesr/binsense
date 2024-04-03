@@ -131,7 +131,7 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
         
         return LocalIterator([fpath for fpath in self.file_paths.values()])
     
-    def _bulk_get(self, part_fpath: str, keys: List[str], device: Any) -> Dict[str, torch.Tensor]:
+    def _bulk_get(self, part_fpath: str, keys: List[str], device: Union[str, Any] = "cpu") -> Dict[str, torch.Tensor]:
         tensors_dict = {}
         if os.path.exists(part_fpath):
             with safetensors.safe_open(part_fpath, framework="pt", device=device) as f:

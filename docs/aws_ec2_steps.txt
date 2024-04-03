@@ -1,0 +1,8 @@
+setup ec2 steps
+git clone https://github.com/nitesr/binsense.git
+cd binsense
+./scripts/setup-conda.env
+./scripts/setup-env.sh
+python -m binsense.cli.run_rfds_downloader --download --cookie_str 'get_cookie' --api_key 'api key'
+copied the train_test_val_split_item.csv
+python -m binsense.cli.run_rfds_validator_copier --copy

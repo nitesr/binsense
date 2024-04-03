@@ -1,6 +1,6 @@
-from ...dataprep.embedding_util import BBoxDatasetEmbedder
-from ...dataprep.owl_wrappper import Owlv2BBoxEmbedder
+from ...lightning.owl_wrappper import Owlv2ImageEmbedder
 from ...dataprep.config import DataPrepConfig
+from ...dataprep.embedding_util import BBoxDatasetEmbedder
 from ...embed_datastore import SafeTensorEmbeddingDatastore
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
@@ -33,11 +33,11 @@ def _get_embed_store(
 
 def _get_bbox_embedder(
     cfg: DataPrepConfig, 
-    owl_model_cfg: Owlv2Config) -> Owlv2BBoxEmbedder:
+    owl_model_cfg: Owlv2Config) -> Owlv2ImageEmbedder:
     
     model = Owlv2ForObjectDetection(owl_model_cfg)
     model.load_state_dict(hloader.load_owlv2model_statedict())
-    bbox_embedder = Owlv2BBoxEmbedder(model=model)
+    bbox_embedder = Owlv2ImageEmbedder(model=model)
     return bbox_embedder
     
 def run_embedder(num_bbox_labels: int, batch_size: int, test_run: bool):

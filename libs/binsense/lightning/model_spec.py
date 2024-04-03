@@ -1,11 +1,39 @@
+from ..dataprep.dataset import ImageProcessor
+
 from typing import Tuple, Dict, Any
 from torch import nn, Tensor
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ObjectDetector(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super(ObjectDetector, self).__init__(*args, **kwargs)
+    
+    def processor(self) -> ImageProcessor:
+        pass
+    
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
+        """
+        Args:
+            x (`Tensor`): 
+            batch of transformed item images
+        Returns:
+            bbox_logits(`Tensor`):
+            bboxes(`Tensor`):
+        """
+        # implement in subclass
+        pass
 
 class ImageEmbedder(nn.Module):
     def __init__(self, encoder: nn.Module, *args, **kwargs) -> None:
         super(ImageEmbedder, self).__init__(*args, **kwargs)
     
-    def forward(x: Tensor) -> Tuple[Tensor]:
+    def processor(self) -> ImageProcessor:
+        pass
+    
+    def forward(x: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Args:
             x (`Tensor`): 
@@ -21,7 +49,10 @@ class InImageQuerier(nn.Module):
     def __init__(self, encoder: nn.Module, *args, **kwargs) -> None:
         super(InImageQuerier, self).__init__(*args, **kwargs)
     
-    def forward(x: Tuple[Tensor]) -> Tuple[Tensor]:
+    def processor(self) -> ImageProcessor:
+        pass
+    
+    def forward(x: Tuple[Tensor]) -> Tuple[Tensor, Tensor]:
         """
         Args:
             x (`Tuple[Tensor]`): 

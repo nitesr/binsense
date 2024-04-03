@@ -1,13 +1,16 @@
 from .config import DataPrepConfig
 from ..dataset_util import DataTag, Dataset as BinsenseDataset
 from .roboflow_util import RoboflowDatasetReader
-from .model_spec import BBoxEmbedder
 from ..embed_datastore import EmbeddingDatastore
 from .dataset import BestBBoxDataset
+from ..lightning.model import LitImageEmbedder
+from ..lightning.model_spec import ImageEmbedder
 
+from typing import Union
 from torch.utils.data import DataLoader as TorchDataLoader
 from tqdm import tqdm
 
+import lightning as L
 import pandas as pd
 import logging, torch, os
 
@@ -16,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BBoxDatasetEmbedder:
     def __init__(
         self, 
-        model: BBoxEmbedder, 
+        model: ImageEmbedder, 
         embedstore: EmbeddingDatastore, 
         config: DataPrepConfig) -> None:
         
@@ -42,7 +45,7 @@ class BBoxDatasetEmbedder:
         del bbox_df
         return best_bbox_df
     
-    def generate(self, batch_size=None, test_run=False):
+    def generate(self, batch_size=None, test_run: Union[int | bool] = False):
         if batch_size is None:
             batch_size = self.cfg.batch_size
         
@@ -52,26 +55,34 @@ class BBoxDatasetEmbedder:
         downloaded_ds = RoboflowDatasetReader(self.cfg.dataset_download_path).read()
         best_bbox_df = self._get_best_bboxes(downloaded_ds)
         logger.info(f"total bbox labels are {best_bbox_df.shape[0]}")
-        df = best_bbox_df[0:10] if test_run else best_bbox_df
         
-        torch_ds = BestBBoxDataset(df, downloaded_ds, processor=self.model.processor())
+        torch_ds = BestBBoxDataset(best_bbox_df, downloaded_ds, processor=self.model.processor())
         torch_dl = TorchDataLoader(torch_ds, batch_size=batch_size)
-
-        progress_bar = tqdm(
-            total=len(torch_ds), 
-            desc="generating embeddings", file=open(os.devnull, 'w'))
-        logger.info(str(progress_bar))
-        progress_step = len(torch_ds) // 5
-        for batch_idx, x in enumerate(torch_dl):
-            with torch.no_grad():
-                bbox_embeddings = self.model(x)# B x 512
-                start_idx = batch_idx * batch_size
-                end_idx = batch_idx * batch_size + len(x)
-                bbox_labels = df.iloc[start_idx:end_idx]['bbox_label'].to_list()
-                self.embedstore.put_many(bbox_labels, bbox_embeddings.detach())
+        
+        trainer = L.Trainer(fast_dev_run=test_run)
+        lmodel = LitImageEmbedder(
+            self.model,
+            batch_size=torch_dl.batch_size,
+            bbox_labels=best_bbox_df['bbox_label'].to_list(),
+            embed_ds=self.embedstore)
+        trainer.predict(model=lmodel, dataloaders=torch_dl)
+        
+        # progress_bar = tqdm(
+        #     total=len(torch_ds), 
+        #     desc="generating embeddings", file=open(os.devnull, 'w'))
+        # logger.info(str(progress_bar))
+        # progress_step = len(torch_ds) // 5
+        # for batch_idx, x in enumerate(torch_dl):
+        #     with torch.no_grad():
+        #         bbox_embeddings = self.model(x)# B x 512
+        #         start_idx = batch_idx * batch_size
+        #         end_idx = batch_idx * batch_size + len(x)
+        #         bbox_labels = df.iloc[start_idx:end_idx]['bbox_label'].to_list()
+        #         bbox_embeddings = bbox_embeddings.detach().cpu()
+        #         self.embedstore.put_many(bbox_labels, bbox_embeddings, device=device)
             
-            progress_bar.update(len(x))
-            if progress_bar.n >= progress_step:
-                logger.info(str(progress_bar))
-                progress_step += progress_bar.n
-        logger.info(str(progress_bar))
+        #     progress_bar.update(len(x))
+        #     if progress_bar.n >= progress_step:
+        #         logger.info(str(progress_bar))
+        #         progress_step += progress_bar.n
+        # logger.info(str(progress_bar))

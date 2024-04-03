@@ -9,7 +9,7 @@ from botocore.config import Config
 from tqdm import tqdm
 from importlib import resources
 from typing import Optional
-
+from concurrent import futures
 import boto3, os, time
 
 class BinS3DataDownloader:
@@ -76,7 +76,7 @@ class BinS3DataDownloader:
             file_modtime = int(os.path.getmtime(data_file))
             return downloaded_time < file_modtime
         
-    def download(self, force: Optional[bool] = False):
+    def download(self, force: Optional[bool] = False, max_workers: int = 1):
         """
         downloads the bin data from s3 to local directories.
         images: ./s3/images
@@ -104,18 +104,25 @@ class BinS3DataDownloader:
             target_image_file = os.path.join(image_dir, f'{image_name}{self.cfg.raw_data_img_extn}')
             target_metadata_file = os.path.join(meta_dir, f'{image_name}.json')
             
-            if not os.path.exists(target_image_file):
-                with open(target_image_file, 'wb') as f:
-                    s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{image_name}{self.cfg.raw_data_img_extn}', f)
-            
-            if not os.path.exists(target_metadata_file):
-                with open(target_metadata_file, 'wb') as f:
-                    s3.download_fileobj(BIN_S3_BUCKET, f'metadata/{image_name}.json', f)
-        
+            def download(img_name: str, img_fpath: str, meta_fpath: str) -> None:
+                if not os.path.exists(img_fpath):
+                    with open(img_fpath, 'wb') as f:
+                        s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{img_name}{self.cfg.raw_data_img_extn}', f)
+                
+                if not os.path.exists(meta_fpath):
+                    with open(meta_fpath, 'wb') as f:
+                        s3.download_fileobj(BIN_S3_BUCKET, f'metadata/{img_name}.json', f)
+                        
+            with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                executor.submit(
+                    download, 
+                    img_name=image_name, 
+                    img_fpath=target_image_file, 
+                    meta_fpath=target_metadata_file)
         self._mark()
 
-def download(force: bool =False) -> None:
+def download(force: bool =False, max_workers: int = 1) -> None:
     """
     delegates the call to `BinS3DataDownloader.download`.
     """
-    BinS3DataDownloader().download(force)
+    BinS3DataDownloader().download(force, max_workers=max_workers)

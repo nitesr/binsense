@@ -89,5 +89,10 @@ if __name__ == '__main__':
             args.project_id, args.ann_group)
         
         print("downloading dataset..")
-        run_download_dataset(args.api_key)
+        run_download_dataset(
+            target_dir=args.target_dir,
+            workspace=args.workspace,
+            project=args.project,
+            version=args.dataset_version,
+            api_key=args.api_key)
     sys.exit(0)

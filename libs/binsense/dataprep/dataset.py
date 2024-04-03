@@ -58,7 +58,7 @@ class BinDataset(TorchDataset):
     def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         fp = self.file_paths[index]
         img = PIL.Image.open(fp)
-        return self.processor.preprocess(img)[0]
+        return (self.processor.preprocess(img))
 
 class BestBBoxDataset(TorchDataset):
     def __init__(
@@ -99,5 +99,5 @@ class BestBBoxDataset(TorchDataset):
     def __getitem__(self, index) -> torch.FloatTensor:
         bbox_center, img_path = self._get_bbox_center(index)
         img_bbox = self._crop_bbox(bbox_center, img_path)
-        bbox_pixels = self.processor.preprocess(img_bbox)[0]
-        return bbox_pixels
+        bbox_pixels = self.processor.preprocess(img_bbox)
+        return (bbox_pixels)

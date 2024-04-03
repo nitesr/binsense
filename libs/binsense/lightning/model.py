@@ -1,11 +1,34 @@
-from .model_spec import InImageQuerier
+from .model_spec import InImageQuerier, ImageEmbedder
 from .model_spec import MultiBoxLoss
+from ..embed_datastore import EmbeddingDatastore
 
 from torchmetrics.classification import Accuracy
 from torch import Tensor
-from typing import Any
+from typing import Any, List
 import lightning as L
 import torch
+
+class LitImageEmbedder(L.LightningModule):
+    def __init__(
+        self,
+        model: ImageEmbedder,
+        bbox_labels: List,
+        batch_size: int,
+        embed_ds: EmbeddingDatastore
+    ) -> None:
+        super(LitImageEmbedder, self).__init__()
+        self.model = model
+        self.embed_ds = embed_ds
+        self.bbox_labels = bbox_labels
+        self.batch_size = batch_size
+    
+    def predict_step(self, batch, batch_idx):
+        self.trainer.device_ids
+        x = batch[0]
+        _, bbox_embeddings = self.model(x)
+        start_idx = batch_idx * self.batch_size
+        end_idx = batch_idx * self.batch_size + len(x)
+        self.embed_ds.put_many(self.bbox_labels[start_idx:end_idx], bbox_embeddings)
 
 class LitInImageQuerier(L.LightningModule):
     def __init__(
