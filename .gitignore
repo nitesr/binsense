@@ -166,4 +166,3 @@ cython_debug/
 _data/
 _models/
 _logs/
-libs/binsense/resources/ik_data_index.csv
