@@ -118,6 +118,12 @@ source ~/.zshrc
 conda init
 conda activate binsense_condaenv
 pip install -e libs
+mkdir _data
+mkdir _logs
+cp -vR data/* _data
+python -m binsense.cli.run_rfds_downloader --download --dataset_version 2 --api_key '<api-key>' --cookie_str '<cookie>'
+python -m binsense.cli.run_rfds_validator_copier --copy --num_workers 10
+python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy auto --generate --num_workers=10
 ```
 
 
