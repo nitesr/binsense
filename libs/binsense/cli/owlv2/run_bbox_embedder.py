@@ -69,7 +69,7 @@ if __name__ == '__main__':
             test_run=args.test_run,
             devices=args.devices,
             accelerator=args.accelerator,
-            strategy=args.strategy
+            strategy=args.strategy,
             num_workers=args.num_workers
         )
     sys.exit(0)
