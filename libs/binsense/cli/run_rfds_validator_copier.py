@@ -7,9 +7,9 @@ from ..dataprep.metadata import BinMetadataLoader
 import pandas as pd
 import logging, os, argparse, sys
 
-def get_orig_dataset(cfg: DataPrepConfig):
-    BinS3DataDownloader(cfg).download()
-    _, orig_df = BinMetadataLoader(cfg).load()
+def get_orig_dataset(cfg: DataPrepConfig, force_download=False, num_workers: int = 1):
+    BinS3DataDownloader(cfg).download(force=force_download, max_workers=num_workers)
+    _, orig_df = BinMetadataLoader(cfg).load(max_workers=num_workers)
     orig_df.sort_values(by=['bin_id', 'item_id'], inplace=True)
     orig_df['image_name'] = orig_df['bin_id'] + '.jpg'
     orig_df.rename(columns={
@@ -110,11 +110,20 @@ if __name__ == '__main__':
         "--target_dir", help=f"target directory for \
             filtered dataset ({filteredds_dirname})",
         default=cfg.root_dir, required=False)
+    parser.add_argument(
+        "--num_workers", help=f"number of workers to download orig dataset",
+        default=1, required=False, type="int")
+    parser.add_argument(
+        "--force_download", help=f"don't use cached download of orig dataset",
+        default=False, required=False, type="bool")
     
     args = parser.parse_args()
     
     if args.validate or args.copy:
-        orig_df = get_orig_dataset(cfg)
+        orig_df = get_orig_dataset(
+            cfg=cfg, 
+            force_download=args.force_download, 
+            num_workers=args.num_workers)
         valid = None
         
         def run_v():
