@@ -1,0 +1,13 @@
+[profile nitesr]
+sso_start_url = https://nitesr.awsapps.com/start
+sso_region = us-east-1
+sso_account_id = 905418016254
+sso_role_name = PowerUserAccess
+region = us-east-1
+output = yaml
+[profile ik_user]
+region = us-east-1
+output = yaml
+[default]
+output = yaml
+region = us-east-1

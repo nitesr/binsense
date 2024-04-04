@@ -24,6 +24,9 @@ Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQ
 - Podman or Docker
 - VScode (code editor)
 - Juypter
+- git
+- git-lfs
+- aws-cli
 
 ## Languages
 - Python
@@ -49,5 +52,75 @@ For API, we will define docker file to setup the environment.
 ./scripts/setup-env.sh
 conda activate binsense_condaenv
 ```
+
+## AWS EC2 setup
+
+### Set ENV variables
+Add below lines to your source (~.zshrc for zsh, ~/.bashrc for bash) file
+```
+export IK_USER_AWS_PROFILE=ik_user
+export IK_USER_AWS_ACCESS_KEY=<get-key-from-aws>
+export IK_USER_AWS_ACCESS_SECRET=<get-secret-from-aws>
+```
+
+### Build Docker Image
+```
+docker build -t "binsense_ec2setup:0.0.1" ./scripts
+```
+
+### Run Docker Instance
+After you run below commands, it should open up bash shell
+```
+DOCKER_IMG_ID=$(docker images | grep "binsense_ec2setup" | xargs echo $1 | cut -d ' ' -f 3)
+
+[ ! -z "$DOCKER_IMG_ID" ] && docker run -it  $DOCKER_IMG_ID \
+"AWS_PROFILE=$IK_USER_AWS_PROFILE" \
+"AWS_ACCESS_KEY=$IK_USER_AWS_ACCESS_KEY" \
+"AWS_ACCESS_SECRET=$IK_USER_AWS_ACCESS_SECRET"
+```
+
+### setup_dl_ec2_instance.sh
+This script contains logic to check, clean & provision following resources to do deep learning
+- key pair
+- security group
+- 1 ec2 instance
+
+### check current active resources on aws
+```
+./scripts/setup_dl_ec2_instance.sh
+```
+
+### clean any active resource status on aws
+```
+./scripts/setup_dl_ec2_instance.sh --clean
+```
+
+### create resources on aws
+```
+./scripts/setup_dl_ec2_instance.sh --create
+```
+
+### ssh into EC2 instance and setup environment
+Make sure below command lists the EC2 instance and public dns before you do ssh
+```
+./scripts/setup_dl_ec2_instance.sh
+chmod 400 ~/.ssh/ik_user_KeyPair.pem
+```
+```
+PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
+ssh -i ~/.ssh/ik_user_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
+sudo apt-get install git-lfs
+git clone https://github.com/nitesr/binsense.git
+cd binsense
+./scripts/setup-conda.sh
+source ~/.zshrc
+./scripts/setup-env.sh
+conda init
+conda activate binsense_condaenv
+pip install -e libs
+```
+
+
+
 
 

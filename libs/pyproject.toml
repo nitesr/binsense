@@ -14,7 +14,8 @@ authors = [
 license = "MIT"
 requires-python = ">=3.11"
 packages = [
-  { include = "binsense" }
+  { include = "binsense" },
+  { include = "tests" }
 ]
 
 [tool.poetry.dependencies]
@@ -37,6 +38,9 @@ huggingface_hub = ">=0.21.4"
 safetensors = ">=0.4.2"
 roboflow = ">=1.1.24"
 uhashring = ">=2.3"
+lightning = ">=2.2.1"
+pytorch-lightning = ">=2.2.1"
+torchmetrics = ">=1.3.2"
 
 
 [tool.poetry.dev-dependencies]

@@ -76,6 +76,9 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
             raise ValueError('start on a clean state to change the partitions')
     
     def _clean_up(self, dir_path : str) -> None:
+        if not os.path.exists(dir_path):
+            return
+        
         for chld_fname in os.listdir(dir_path):
             fpath = os.path.join(dir_path, chld_fname)
             _, ext = os.path.splitext(fpath)
@@ -109,11 +112,12 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
                         return False
                     
                     self.fpaths_ptr += 1
-                    with safetensors.safe_open(
-                        self.fpaths[self.fpaths_ptr], framework="pt") as f:
-                        #TODO: use key iterator instead of loading
-                        self.par_keys = [k for k in f.keys()]
-                        self.par_keys_ptr = -1
+                    if os.path.exists(self.fpaths[self.fpaths_ptr]):
+                        with safetensors.safe_open(
+                            self.fpaths[self.fpaths_ptr], framework="pt") as f:
+                            #TODO: use key iterator instead of loading
+                            self.par_keys = [k for k in f.keys()]
+                            self.par_keys_ptr = -1
                 
                 return True
             

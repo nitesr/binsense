@@ -112,10 +112,10 @@ if __name__ == '__main__':
         default=cfg.root_dir, required=False)
     parser.add_argument(
         "--num_workers", help=f"number of workers to download orig dataset",
-        default=1, required=False, type="int")
+        default=1, required=False, type=int)
     parser.add_argument(
         "--force_download", help=f"don't use cached download of orig dataset",
-        default=False, required=False, type="bool")
+        default=False, required=False, type=bool)
     
     args = parser.parse_args()
     

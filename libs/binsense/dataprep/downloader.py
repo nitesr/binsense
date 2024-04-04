@@ -99,6 +99,15 @@ class BinS3DataDownloader:
         image_names = [x.strip() for x in image_names]
 
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        def download(img_name: str, img_fpath: str, meta_fpath: str) -> None:
+            if not os.path.exists(img_fpath):
+                with open(img_fpath, 'wb') as f:
+                    s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{img_name}{self.cfg.raw_data_img_extn}', f)
+            
+            if not os.path.exists(meta_fpath):
+                with open(meta_fpath, 'wb') as f:
+                    s3.download_fileobj(BIN_S3_BUCKET, f'metadata/{img_name}.json', f)
+                            
         future_tasks = []
         with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for image_name in tqdm(image_names, desc="downloading bin data"):
@@ -106,20 +115,11 @@ class BinS3DataDownloader:
                 target_image_file = os.path.join(image_dir, f'{image_name}{self.cfg.raw_data_img_extn}')
                 target_metadata_file = os.path.join(meta_dir, f'{image_name}.json')
                 
-                def download(img_name: str, img_fpath: str, meta_fpath: str) -> None:
-                    if not os.path.exists(img_fpath):
-                        with open(img_fpath, 'wb') as f:
-                            s3.download_fileobj(BIN_S3_BUCKET, f'bin-images/{img_name}{self.cfg.raw_data_img_extn}', f)
-                    
-                    if not os.path.exists(meta_fpath):
-                        with open(meta_fpath, 'wb') as f:
-                            s3.download_fileobj(BIN_S3_BUCKET, f'metadata/{img_name}.json', f)
-                
-                    future_tasks.append(executor.submit(
-                        download, 
-                        img_name=image_name, 
-                        img_fpath=target_image_file, 
-                        meta_fpath=target_metadata_file))
+                future_tasks.append(executor.submit(
+                    download, 
+                    img_name=image_name, 
+                    img_fpath=target_image_file, 
+                    meta_fpath=target_metadata_file))
             futures.wait(future_tasks)
         self._mark()
 

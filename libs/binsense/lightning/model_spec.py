@@ -17,8 +17,7 @@ class ObjectDetector(nn.Module):
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Args:
-            x (`Tensor`): 
-            batch of transformed item images
+            x (`Tensor`):  batch of transformed item images
         Returns:
             bbox_logits(`Tensor`):
             bboxes(`Tensor`):
@@ -33,11 +32,13 @@ class ImageEmbedder(nn.Module):
     def processor(self) -> ImageProcessor:
         pass
     
+    def get_embed_size(self) -> int:
+        pass
+    
     def forward(x: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Args:
-            x (`Tensor`): 
-            batch of transformed item images
+            x (`Tensor`): batch of transformed item images
         Returns:
             logits (`Tensor`): classification logits
             embeddings (`Tensor`): embeddings
@@ -52,7 +53,7 @@ class InImageQuerier(nn.Module):
     def processor(self) -> ImageProcessor:
         pass
     
-    def forward(x: Tuple[Tensor]) -> Tuple[Tensor, Tensor]:
+    def forward(x: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Args:
             x (`Tuple[Tensor]`): 

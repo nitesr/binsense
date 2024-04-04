@@ -68,7 +68,7 @@ fi
 echo "project dir: $projDir"
 echo "virtual environment: $envName"
 echo "Python version: $pythonVer"
-
+conda init
 envAvailable=$( conda env list | grep $envName | wc -l )
 if [ $envAvailable -eq 1 ] && [ $CLEAN_ENV -eq 1 ]; then
     echo "deleting $envName conda environment"

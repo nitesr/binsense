@@ -35,7 +35,7 @@ class OwlImageProcessor(ImageProcessor):
         self.processor = Owlv2ImageProcessor(**owl_config)
         
     def preprocess(self, images: List[PILImage] | np.ndarray, *args, **kwargs) -> Tuple[torch.Tensor]:
-        return self.processor.preprocess(images)["pixel_values"]
+        return self.processor.preprocess(images)["pixel_values"][0]
         
 class BinDataset(TorchDataset):
     def __init__(
@@ -58,7 +58,7 @@ class BinDataset(TorchDataset):
     def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         fp = self.file_paths[index]
         img = PIL.Image.open(fp)
-        return (self.processor.preprocess(img))
+        return (torch.tensor([index], dtype=torch.int32), self.processor.preprocess(img))
 
 class BestBBoxDataset(TorchDataset):
     def __init__(
@@ -96,8 +96,8 @@ class BestBBoxDataset(TorchDataset):
         img_bbox = img_pil.crop(tuple(bbox_corners[0]))
         return img_bbox
     
-    def __getitem__(self, index) -> torch.FloatTensor:
+    def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         bbox_center, img_path = self._get_bbox_center(index)
         img_bbox = self._crop_bbox(bbox_center, img_path)
         bbox_pixels = self.processor.preprocess(img_bbox)
-        return (bbox_pixels)
+        return (torch.tensor([index], dtype=torch.int32), bbox_pixels)

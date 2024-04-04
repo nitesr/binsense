@@ -41,10 +41,13 @@ class Owlv2ImageEmbedder(ImageEmbedder):
         self.model = model
         self._processor = OwlImageProcessor()
 
+    def get_embed_size(self) -> int:
+        return 512
+    
     def processor(self) -> ImageProcessor:
         return self._processor
 
-    def forward(self, bboxes: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, bboxes: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         
         # try with 
         #   highest IOU with actual image size

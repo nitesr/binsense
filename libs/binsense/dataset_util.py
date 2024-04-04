@@ -242,7 +242,7 @@ class Yolov8Deserializer(YoloDeserializer):
         label_id = tokens[0]
         self.builder.add_bbox(
             img_id, int(label_id),
-            np.array([float(tokens[1]), float(tokens[2]), float(tokens[3]), float(tokens[4])])
+            np.array([np.float32(tokens[1]), float(tokens[2]), float(tokens[3]), float(tokens[4])])
         )
         
     def _read_ann_file(self, img_id: int, ann_path: str) -> None:
