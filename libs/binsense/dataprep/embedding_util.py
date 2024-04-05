@@ -71,6 +71,7 @@ class BBoxDatasetEmbedder:
     
     def generate(self, **kwargs):
         num_workers = kwargs.pop('num_workers') if 'num_workers' in kwargs else 0
+        num_workers = get_default_on_none(num_workers, 0)
         torch_dl, best_bbox_df = self._get_data_loader(num_workers)
         trainer = L.Trainer(**kwargs)
         embed_store = None

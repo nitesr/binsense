@@ -28,9 +28,11 @@ class LitImageEmbedder(L.LightningModule):
         return (idx, embeddings)
     
     def on_predict_batch_end(self, outputs: Any | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
-        idx = self.all_gather(outputs[0]).flatten(0, 1)
-        bbox_embeddings = self.all_gather(outputs[1]).flatten(0, 1)
+        idx = self.all_gather(outputs[0])
+        bbox_embeddings = self.all_gather(outputs[1])
         if self.trainer.is_global_zero:
+            idx = idx.flatten(0, 1) if len(idx.shape) > 2 else idx
+            bbox_embeddings = bbox_embeddings.flatten(0, 1) if len(bbox_embeddings.shape) > 2 else bbox_embeddings
             labels = [self.bbox_labels[i] for i in idx]
             self.embed_ds.put_many(labels, bbox_embeddings)
 

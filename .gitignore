@@ -166,6 +166,7 @@ cython_debug/
 _data/
 _models/
 _logs/
+_mount/
 
 # lightning
 lightning_logs

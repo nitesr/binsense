@@ -108,6 +108,7 @@ chmod 400 ~/.ssh/ik_user_KeyPair.pem
 ```
 ```
 PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
+echo $PUBLIC_DNS_NAME
 ssh -i ~/.ssh/ik_user_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
 sudo apt-get install git-lfs
 git clone https://github.com/nitesr/binsense.git
@@ -118,12 +119,12 @@ source ~/.zshrc
 conda init
 conda activate binsense_condaenv
 pip install -e libs
-mkdir _data
-mkdir _logs
+mkdir _data _logs
 cp -vR data/* _data
 python -m binsense.cli.run_rfds_downloader --download --dataset_version 2 --api_key '<api-key>' --cookie_str '<cookie>'
 python -m binsense.cli.run_rfds_validator_copier --copy --num_workers 10
-python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy auto --generate --num_workers=10
+python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --devices 4 --strategy 'auto' --num_workers=10 --generate
+python -m binsense.cli.run_embeds_validator --validate
 ```
 
 
