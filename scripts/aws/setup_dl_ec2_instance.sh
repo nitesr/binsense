@@ -6,6 +6,7 @@ PROFILE=$AWS_PROFILE
 
 
 PROFILE_ARG_PATTERN="--profile=[^=]+"
+EC2_INSTANCE_TYPE_ARG_PATTERN="--instance=[^=]+"
 for arg in "$@"
 do
     if [ "$arg" = "--clean" ]; then
@@ -19,6 +20,10 @@ do
     if [[ "$arg" =~ $PROFILE_ARG_PATTERN ]]; then
         PROFILE=$(echo $arg | cut -d '=' -f 2)
     fi
+
+    if [[ "$arg" =~ $EC2_INSTANCE_TYPE_ARG_PATTERN ]]; then
+        EC2_INSTANCE_TYPE_ARG_VALUE=$(echo $arg | cut -d '=' -f 2)
+    fi
 done
 
 
@@ -27,7 +32,7 @@ KEYPAIR_NAME=$PROFILE"_KeyPair"
 DL_EC2_NAME=$PROFILE"_DL_EC2"
 
 EC2_AMI_ID="ami-0da2ab58cace8997d"
-EC2_INSTANCE_TYPE="g4dn.12xlarge"
+EC2_INSTANCE_TYPE=$( [[ "$EC2_INSTANCE_TYPE_ARG_VALUE" == "" ]] && echo "$EC2_INSTANCE_TYPE_ARG_VALUE" || echo "g4dn.12xlarge")
 
 function remove_null () {
     [ "$1" = "null" ] && echo "" || echo "$@"
@@ -175,7 +180,7 @@ fi
 if [ $CREATE -ne 0 ]; then
     validate
 
-    echo "creating $KEYPAIR_NAME, $SG_NAME, $DL_EC2_NAME ..."
+    echo "creating $KEYPAIR_NAME, $SG_NAME, $DL_EC2_NAME($EC2_INSTANCE_TYPE) ..."
     create_key_pair
     create_sg
     create_ec2

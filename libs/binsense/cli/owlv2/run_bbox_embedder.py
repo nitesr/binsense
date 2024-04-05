@@ -2,14 +2,9 @@ from ...lightning.owl_wrappper import Owlv2ImageEmbedder
 from ...dataprep.config import DataPrepConfig
 from ...dataprep.embedding_util import BBoxDatasetEmbedder
 
-from ...lightning.model import LitImageEmbedder
 from ...owlv2 import Owlv2ForObjectDetection, Owlv2Config
 from ...owlv2 import hugg_loader as hloader
 
-from torch.utils.data import DataLoader as TorchDataLoader
-
-import lightning as L
-import pandas as pd
 import argparse, logging, sys
 
 logger = logging.getLogger(__name__)
@@ -50,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--num_workers", help="num of dataloader workers", default=None, type=int)
     parser.add_argument(
-        "--devices", help="num of devices available", default=1, type=int)
+        "--devices", help="num of devices available", default="auto")
     parser.add_argument(
         "--accelerator", help="lightining accelerator e.g. cpu, gpu", default="auto", type=str)
     parser.add_argument(

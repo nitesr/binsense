@@ -73,10 +73,12 @@ After you run below commands, it should open up bash shell
 ```
 DOCKER_IMG_ID=$(docker images | grep "binsense_ec2setup" | xargs echo $1 | cut -d ' ' -f 3)
 
-[ ! -z "$DOCKER_IMG_ID" ] && docker run -it  $DOCKER_IMG_ID \
+[ ! -z "$DOCKER_IMG_ID" ] && docker run -v ./scripts/_mount:/aws/mount -it  $DOCKER_IMG_ID \
 "AWS_PROFILE=$IK_USER_AWS_PROFILE" \
 "AWS_ACCESS_KEY=$IK_USER_AWS_ACCESS_KEY" \
 "AWS_ACCESS_SECRET=$IK_USER_AWS_ACCESS_SECRET"
+
+AWS_PROFILE=ik_user
 ```
 
 ### setup_dl_ec2_instance.sh
@@ -87,29 +89,29 @@ This script contains logic to check, clean & provision following resources to do
 
 ### check current active resources on aws
 ```
-./scripts/setup_dl_ec2_instance.sh
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE
 ```
 
 ### clean any active resource status on aws
 ```
-./scripts/setup_dl_ec2_instance.sh --clean
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --clean
 ```
 
 ### create resources on aws
 ```
-./scripts/setup_dl_ec2_instance.sh --create
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --create
 ```
 
 ### ssh into EC2 instance and setup environment
 Make sure below command lists the EC2 instance and public dns before you do ssh
 ```
-./scripts/setup_dl_ec2_instance.sh
-chmod 400 ~/.ssh/ik_user_KeyPair.pem
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE
+chmod 400 ~/.ssh/"$AWS_PROFILE"_KeyPair.pem
 ```
 ```
-PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
+PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
 echo $PUBLIC_DNS_NAME
-ssh -i ~/.ssh/ik_user_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
+ssh -i ~/.ssh/"$AWS_PROFILE"_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
 sudo apt-get install git-lfs
 git clone https://github.com/nitesr/binsense.git
 cd binsense
@@ -123,7 +125,7 @@ mkdir _data _logs
 cp -vR data/* _data
 python -m binsense.cli.run_rfds_downloader --download --dataset_version 2 --api_key '<api-key>' --cookie_str '<cookie>'
 python -m binsense.cli.run_rfds_validator_copier --copy --num_workers 10
-python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --devices 4 --strategy 'auto' --num_workers=10 --generate
+python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy 'auto' --num_workers=10 --devices 1 --generate
 python -m binsense.cli.run_embeds_validator --validate
 ```
 
