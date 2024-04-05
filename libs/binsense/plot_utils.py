@@ -22,8 +22,11 @@ def plot_bboxes(
     if ax is None:
         ax = plt.gca()
     
+    if labels is not None:
+        assert len(labels) == len(bboxes)
+    
     draw_img = cv_img.copy()
-    if not bboxes:
+    if bboxes is None or len(bboxes) == 0:
         return
     
     label_txts = []
@@ -118,8 +121,9 @@ def show_bbox_ingrid(
         cv_img (`np.ndarray`):
             open cv image on which the bbox needs to drawn
         box_scores (`List[Union[Tuple, np.array]]`):
-            list of bounding boxes in tuples of box corner (left-top/right-bottom) coordinates and scores
-            or list of bounding boxes with no scores
+            list of bounding boxes in tuples of 
+                box corner (left-top/right-bottom) coordinates, scores, label
+            or list of bounding boxes with no scores/labels
         grid (`Tuple[int, int]`):
             matplotlib plot grid rowsxcols
         title: str=None
@@ -136,13 +140,18 @@ def show_bbox_ingrid(
             if bi >= len(box_scores):
                 continue
             
-            bbox, score = box_scores[bi] if isinstance(box_scores[bi], tuple) \
-                else (box_scores[bi], None)
+            if isinstance(box_scores[bi], tuple):
+                bbox = box_scores[bi][0]
+                score = f'{box_scores[bi][1]:1.3f}' if len(box_scores[bi]) > 0 and box_scores[bi][1] is not None  else '_'
+                label = f'{box_scores[bi][2]}({score})' if len(box_scores[bi]) > 1 else score
+            else:
+                bbox = box_scores[bi]
+                label = None
             
             plot_bboxes(
                 cv_img, 
                 np.expand_dims(bbox, axis=0),
-                [f'Score: {score:1.3f}' if score else None],
+                [label],
                 axs[i][j]
             )
     if title:

@@ -54,6 +54,19 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
         self.hring = HashRing(nodes=[f'par{i}' for i in range(self.num_partitions)])
         self.file_paths = { key : os.path.join(dir_path, f'embeddings-{key}.safetensors') \
             for key in self.hring.get_nodes() }
+        
+        # TODO: check on HashRing if its consistent on multiple initializes
+        #   mean while construct the key map, helpful for readonly stores
+        self.key_map = self._build_key_map()
+    
+    def _build_key_map(self) -> Dict[str, str]:
+        key_fp_map = {}
+        for fp in self.file_paths:
+            if os.path.exists(fp):
+                with safetensors.safe_open(fp, framework="pt") as f:
+                    for k in f.keys():
+                        key_fp_map[k] = fp
+        return key_fp_map
     
     def _initialize(self, req_partitions: int):
         if not os.path.exists(self.dir_path):
@@ -87,7 +100,7 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
                 logger.info(f"backed up {fpath} to {bkp_fpath}")
     
     def _to_partition(self, key: str) -> str:
-        par = self.hring.get_node(key)
+        par = self.key_map[key] if key in self.key_map else self.hring.get_node(key)
         return self.file_paths[par]
     
     def _validate_read_only(self) -> None:
@@ -158,6 +171,11 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
         fpath = self._to_partition(key)
         tensors = self._bulk_get(fpath, [key], device)
         return tensors[key] if key in tensors.keys() else None
+    
+    def has(self, key: str) -> bool:
+        if key in self.key_map:
+            return True
+        return self.get(key) is not None
             
     def put(self, key: str, value: torch.Tensor) -> None:
         fpath = self._to_partition(key)

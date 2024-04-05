@@ -77,3 +77,4 @@ class LitInImageQuerier(L.LightningModule):
         gt_labels, gt_boxes = y
         test_loss = self.loss(pred_bboxes, logits, gt_labels, gt_boxes)
         self.log("test_loss", test_loss)
+
