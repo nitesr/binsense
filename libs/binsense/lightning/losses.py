@@ -98,7 +98,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
             tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
             tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
         
-        empty_weight = torch.ones(num_classes)
+        empty_weight = torch.ones(num_classes, device=pred_logits.device)
         empty_weight[-1] = self.eos_coef
         return F.cross_entropy(src_logits.transpose(1, 2), tgt_classes, empty_weight)
     
