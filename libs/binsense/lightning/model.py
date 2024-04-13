@@ -128,13 +128,13 @@ class LitInImageQuerier(L.LightningModule):
         
         selected_pred_boxes = []
         selected_pred_scores = []
-        alphas = torch.zeros_like(scores)
+        alphas = torch.zeros_like(scores, device=pred_logits.device)
         for idx in range(pred_boxes.shape[0]):
             # Select scores for boxes matching the current query:
             query_scores = scores[idx]
             if not query_scores.nonzero().numel():
-                selected_pred_boxes.append(tutls.empty_float_tensor())
-                selected_pred_scores.append(tutls.empty_float_tensor())
+                selected_pred_boxes.append(tutls.empty_float_tensor().to(pred_boxes.device))
+                selected_pred_scores.append(tutls.empty_float_tensor().to(pred_boxes.device))
                 continue
 
             # Apply threshold on scores before scaling
@@ -159,7 +159,7 @@ class LitInImageQuerier(L.LightningModule):
         assert preds is not None
         assert targets is not None
         
-        device = preds['pred_boxes'].device
+        device = targets["count"][0].device
         if len(preds['pred_boxes']) != len(targets["count"]):
             logger.error(f'''
                 idxs={input_idx}, 
