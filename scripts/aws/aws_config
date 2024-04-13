@@ -5,6 +5,9 @@ sso_account_id = 905418016254
 sso_role_name = PowerUserAccess
 region = us-east-1
 output = yaml
+[profile nitesr_user]
+region = us-east-1
+output = yaml
 [profile ik_user]
 region = us-east-1
 output = yaml

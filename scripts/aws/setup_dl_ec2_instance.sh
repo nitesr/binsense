@@ -32,7 +32,7 @@ KEYPAIR_NAME=$PROFILE"_KeyPair"
 DL_EC2_NAME=$PROFILE"_DL_EC2"
 
 EC2_AMI_ID="ami-0da2ab58cace8997d"
-EC2_INSTANCE_TYPE=$( [[ "$EC2_INSTANCE_TYPE_ARG_VALUE" == "" ]] && echo "$EC2_INSTANCE_TYPE_ARG_VALUE" || echo "g4dn.12xlarge")
+EC2_INSTANCE_TYPE=$( [[ ! "$EC2_INSTANCE_TYPE_ARG_VALUE" == "" ]] && echo "$EC2_INSTANCE_TYPE_ARG_VALUE" || echo "g4dn.12xlarge")
 
 function remove_null () {
     [ "$1" = "null" ] && echo "" || echo "$@"

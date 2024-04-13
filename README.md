@@ -98,6 +98,7 @@ This script contains logic to check, clean & provision following resources to do
 ```
 
 ### create resources on aws
+you can pass ----instance=<type of ec2 instance e.g. g4dn.xlarge or g4dn.12xlarge>
 ```
 ./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --create
 ```
@@ -107,11 +108,15 @@ Make sure below command lists the EC2 instance and public dns before you do ssh
 ```
 ./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE
 chmod 400 ~/.ssh/"$AWS_PROFILE"_KeyPair.pem
+cp -f ~/.ssh/"$AWS_PROFILE"_KeyPair.pem /aws/mount
+./scripts/setup_dl_ec2_instance.sh > /aws/mount/ec2_details.txt
 ```
 ```
 PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
 echo $PUBLIC_DNS_NAME
-ssh -i ~/.ssh/"$AWS_PROFILE"_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
+ssh -o StrictHostKeyChecking=yes -i ~/.ssh/"$AWS_PROFILE"_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
+
+# on the $PUBLIC_DNS_NAME shell
 sudo apt-get install git-lfs
 git clone https://github.com/nitesr/binsense.git
 cd binsense
