@@ -123,12 +123,22 @@ conda activate binsense_condaenv
 pip install -e libs
 mkdir _data _logs
 cp -vR data/* _data
+```
+### Run the dataprep scripts
+prerequisite: ec2 instance and conda env is setup
+```
 python -m binsense.cli.run_rfds_downloader --download --dataset_version 2 --api_key '<api-key>' --cookie_str '<cookie>'
 python -m binsense.cli.run_rfds_validator_copier --copy --num_workers 10
 python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy 'auto' --num_workers=10 --devices 1 --generate
 python -m binsense.cli.run_embeds_validator --validate
 ```
 
+### Train the owlv2 model
+prerequisite: dataprep scripts are executed
+```
+python -m binsense.cli.train --build_dataset
+python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=2 --devices 1 --fast_dev_run=1 
+```
 
 
 

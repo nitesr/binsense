@@ -1,14 +1,14 @@
-from .owlv2 import hugg_loader as hloader
-from .owlv2.model import Owlv2ForObjectDetection
-from .owlv2.config import Owlv2Config
-from .owlv2.processor import Owlv2ImageProcessor
+from ...owlv2 import hugg_loader as hloader
+from ...owlv2.model import Owlv2ForObjectDetection
+from ...owlv2.config import Owlv2Config
+from ...owlv2.processor import Owlv2ImageProcessor
 
-from .dataprep.config import DataPrepConfig
-from .lightning.config import Config as TrainConfig
-from .lightning.dataset import InImageQueryDatasetBuilder, LitInImageQuerierDM
-from .lightning.owlv2_model import OwlV2InImageQuerier
-from .lightning.model import LitInImageQuerier
-from .embed_datastore import SafeTensorEmbeddingDatastore
+from ...dataprep.config import DataPrepConfig
+from ...lightning.config import Config as TrainConfig
+from ...lightning.dataset import InImageQueryDatasetBuilder, LitInImageQuerierDM
+from ...lightning.owlv2_model import OwlV2InImageQuerier
+from ...lightning.model import LitInImageQuerier
+from ...embed_datastore import SafeTensorEmbeddingDatastore
 from lightning.pytorch.loggers import TensorBoardLogger
 
 import lightning as L
