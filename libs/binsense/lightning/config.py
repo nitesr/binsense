@@ -18,10 +18,10 @@ class Config:
     batch_size: int = 8
     num_workers: int = 0
     
-    bbox_loss_coef: float = 1.0
+    reg_loss_coef: float = 0.5
     giou_loss_coef: float = 1.0
-    label_loss_coef: float = 1.0
-    eos_coef: float = 0.1
+    label_loss_coef: float = 1.5
+    eos_coef: float = 1.0
     iou_threshold = 0.98
     nms_threshold = 1
     score_threshold = 0.98

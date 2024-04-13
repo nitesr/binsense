@@ -15,7 +15,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
 
     def __init__(
         self,
-        bbox_loss_coef: float = 1.0,
+        reg_loss_coef: float = 1.0,
         giou_loss_coef: float = 1.0,
         label_loss_coef: float = 1.0,
         eos_coef: float = 0.1):
@@ -28,14 +28,14 @@ class DETRMultiBoxLoss(MultiBoxLoss):
             label_loss_coef (`float`): classfication loss - bce or mce
         """
         self.label_loss_coef = label_loss_coef
-        self.bbox_loss_coef = bbox_loss_coef
+        self.reg_loss_coef = reg_loss_coef
         self.giou_loss_coef = giou_loss_coef
         self.eos_coef = eos_coef
 
          # TODO: do we need same weights
         self.matcher = HungarianMatcher(
             cost_class=self.label_loss_coef,
-            cost_bbox=self.bbox_loss_coef,
+            cost_bbox=self.reg_loss_coef,
             cost_giou=self.giou_loss_coef)
     
     def _run_matcher(self, pred_logits, pred_boxes, gt_labels, gt_boxes):
@@ -128,7 +128,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
             loss_reg, loss_giou = torch.as_tensor(0.0, device=pred_boxes.device), torch.as_tensor(0.0, device=pred_boxes.device)
             loss_label = self._calc_label_loss(pred_logits, gt_labels)
         
-        loss = self.bbox_loss_coef * loss_reg \
+        loss = self.reg_loss_coef * loss_reg \
             + self.giou_loss_coef * loss_giou \
             + self.label_loss_coef * loss_label
         

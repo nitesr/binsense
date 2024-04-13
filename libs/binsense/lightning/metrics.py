@@ -16,7 +16,7 @@ class QueryAccuracy(Metric):
     compare_fns = {
         "exists": lambda preds, targets:  (preds > 0) == (targets > 0),
         "matches": lambda preds, targets:  preds == targets,
-        "meets": lambda preds, targets:  preds >= targets
+        "meets": lambda preds, targets:  torch.hstack([preds[targets > 0] >= targets[targets > 0], preds[targets == 0] == targets[targets == 0]])
     }
 
     def __init__(self, criteria: str = "matches", **kwargs):

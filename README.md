@@ -100,7 +100,7 @@ This script contains logic to check, clean & provision following resources to do
 ### create resources on aws
 you can pass ----instance=<type of ec2 instance e.g. g4dn.xlarge or g4dn.12xlarge>
 ```
-./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --create
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --create --instance=g4dn.xlarge
 ```
 
 ### ssh into EC2 instance and setup environment
@@ -114,7 +114,7 @@ cp -f ~/.ssh/"$AWS_PROFILE"_KeyPair.pem /aws/mount
 ```
 PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
 echo $PUBLIC_DNS_NAME
-ssh -o StrictHostKeyChecking=yes -i ~/.ssh/"$AWS_PROFILE"_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
+ssh -o StrictHostKeyChecking=no -i ~/.ssh/"$AWS_PROFILE"_KeyPair.pem ubuntu@$PUBLIC_DNS_NAME
 
 # on the $PUBLIC_DNS_NAME shell
 sudo apt-get install git-lfs
@@ -128,7 +128,9 @@ conda activate binsense_condaenv
 pip install -e libs
 mkdir _data _logs
 cp -vR data/* _data
+unzip data/bin/filtered_dataset.zip -d .
 ```
+
 ### Run the dataprep scripts
 prerequisite: ec2 instance and conda env is setup
 ```
@@ -141,8 +143,10 @@ python -m binsense.cli.run_embeds_validator --validate
 ### Train the owlv2 model
 prerequisite: dataprep scripts are executed
 ```
-python -m binsense.cli.train --build_dataset
-python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=2 --devices 1 --fast_dev_run=1 
+python -m binsense.cli.owlv2.train --build_dataset
+python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=4  --devices 1 --fast_dev_run=1
+
+nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --epochs 10 num_workers=3 > ./_logs/run_owlv2_train.log 2>&1 </dev/null &
 ```
 
 

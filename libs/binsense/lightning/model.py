@@ -60,7 +60,7 @@ class LitInImageQuerier(L.LightningModule):
         self.loss = get_default_on_none(
             loss, 
             DETRMultiBoxLoss(
-                self.cfg.bbox_loss_coef, self.cfg.giou_loss_coef, 
+                self.cfg.reg_loss_coef, self.cfg.giou_loss_coef, 
                 self.cfg.label_loss_coef, self.cfg.eos_coef)
         )
         
