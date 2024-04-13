@@ -10,6 +10,17 @@ import torch, logging
 logger = logging.getLogger(__name__)
 
 
+def hungarian_matcher(
+    outputs: Dict[str, torch.Tensor], 
+    targets: List[Dict[str, torch.Tensor]], 
+    cost_class: Optional[float] = 1, 
+    cost_bbox: Optional[float] = 1, 
+    cost_giou: Optional[float] = 1) -> List[ Tuple[int, int]]:
+    """
+    same as `HungarianMatcher`(..)(..)
+    """
+    return HungarianMatcher(cost_class, cost_bbox, cost_giou)(outputs, targets)
+
 """
 Hungarian matcher
 https://github.com/facebookresearch/detr/blob/647917626d5017e63c1217b99537deb2dcb370d6/models/matcher.py
@@ -43,7 +54,7 @@ class HungarianMatcher(nn.Module):
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
-
+    
     @torch.no_grad()
     def forward(
         self, 
@@ -70,20 +81,29 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        bs, num_queries = outputs["pred_logits"].shape[:2]
+        bs, num_queries, num_classes = outputs["pred_logits"].shape
+        
 
-        # We flatten to compute the cost matrices in a batch
-        out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)  # [batch_size * num_queries, num_classes]
-        out_bbox = outputs["pred_boxes"].flatten(0, 1)  # [batch_size * num_queries, 4]
-
-        # Also concat the target labels and boxes
-        tgt_ids = torch.cat([v["labels"] for v in targets])
-        tgt_bbox = torch.cat([v["boxes"] for v in targets])
-
+        # flatten to compute the cost matrices in a batch
+        out_prob = outputs["pred_logits"].flatten(0, 1)
+        if num_classes == 1:
+            # in case of num_classes = 1, apply sigmoid to get probability
+            out_prob = torch.sigmoid(out_prob)
+            matched_out_prob = out_prob
+        else:
+            out_prob = out_prob.softmax(-1)  # [batch_size * num_queries, num_classes]
+            # concat the target labels to match the flattened preds
+            tgt_ids = torch.cat([v["labels"] for v in targets])
+            matched_out_prob = out_prob[:, tgt_ids]
+            
         # Compute the classification cost. Contrary to the loss, we don't use the NLL,
         # but approximate it in 1 - proba[target class].
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
-        cost_class = -out_prob[:, tgt_ids]
+        cost_class = -matched_out_prob
+        
+        # flattened preds and concat the target boxes to match
+        out_bbox = outputs["pred_boxes"].flatten(0, 1)  # [batch_size * num_queries, 4]
+        tgt_bbox = torch.cat([v["boxes"] for v in targets])
 
         # Compute the L1 cost between boxes
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
@@ -94,10 +114,10 @@ class HungarianMatcher(nn.Module):
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
         
-        # Unflatten - B x patches x sum(tgt[i]_size)
+        # Unflatten, B x patches x sum(tgt[i]_size)
         C = C.view(bs, num_queries, -1).cpu()
 
-        # Unflatten - B x [ B x patches x tgt[i]_size ]
+        # Unflatten,  B x [ B x patches x tgt[i]_size ]
         sizes = [len(v["boxes"]) for v in targets]
         C_tgts = [c for c in C.split(sizes, -1)]
         

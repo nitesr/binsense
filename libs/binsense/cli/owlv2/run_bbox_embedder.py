@@ -1,4 +1,4 @@
-from ...lightning.owl_wrappper import Owlv2ImageEmbedder
+from ...lightning.owlv2_model import Owlv2ImageEmbedder
 from ...dataprep.config import DataPrepConfig
 from ...dataprep.embedding_util import BBoxDatasetEmbedder
 

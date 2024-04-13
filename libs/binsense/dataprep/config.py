@@ -23,6 +23,8 @@ class DataPrepConfig:
     embed_store_dirpath = os.path.join(cfg.BIN_DATA_DIR, 'embed_store')
     
     filtered_dataset_path = os.path.join(cfg.BIN_DATA_DIR, 'filtered_dataset')
+    inimage_queries_csv = os.path.join(cfg.BIN_DATA_DIR, 'inimage_queries.csv')
+    inimage_queries_pos_neg_ratio = 1
     
     roboql_dataset_url='https://app.roboflow.com/query/roboql/dataset'
     robo_workspace = "nitesh-c-eszzc"

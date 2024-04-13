@@ -5,6 +5,7 @@ from .output import Owlv2ForObjectDetectionOutput
 from .utils import center_to_corners_format_torch
 from .utils import box_iou, generalized_box_iou
 
+from torch.nn import functional as F
 from torch import nn
 from typing import Optional, Tuple
 
@@ -494,32 +495,29 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         )
         
         # Predict object classes [batch_size, num_patches, num_queries+1]
+        # +1 to mask for no-object
+        query_embeddings = F.pad(query_embeddings, (0, 0, 0, 1), 'constant', 0)
+        query_mask = torch.full(query_embeddings.shape[:2], 1, dtype=query_embeddings.dtype, device=query_embeddings.device)
+        query_mask[:, -1] = 0
         (pred_logits, class_embeds) = self.class_predictor(image_feats=image_feats, query_embeds=query_embeddings)
         
         # Predict objectness
-        objectness_logits = self.objectness_predictor(image_feats)
+        # objectness_logits = self.objectness_predictor(image_feats)
         
         # Predict object boxes
         target_pred_boxes = self.box_predictor(image_feats)
         
         if not return_dict:
             output = (
-                image_feats,
-                target_pred_boxes,
                 pred_logits,
-                class_embeds,
-                vision_outputs.to_tuple(),
+                target_pred_boxes
             )
             output = tuple(x for x in output if x is not None)
             return output
 
         return Owlv2ForObjectDetectionOutput(
-            image_embeds=image_feats,
-            target_pred_boxes=target_pred_boxes,
-            logits=pred_logits,
-            class_embeds=class_embeds,
-            text_model_output=None,
-            vision_model_output=vision_outputs,
+            pred_logits=pred_logits,
+            pred_boxes=target_pred_boxes
         )
     
     def image_guided_detection(
@@ -638,24 +636,13 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         
         if not return_dict:
             output = (
-                image_feats,
-                query_image_feats,
-                target_pred_boxes,
-                query_pred_boxes,
                 pred_logits,
-                class_embeds,
-                vision_outputs.to_tuple(),
+                target_pred_boxes,
             )
             output = tuple(x for x in output if x is not None)
             return output
 
         return Owlv2ForObjectDetectionOutput(
-            image_embeds=image_feats,
-            query_image_embeds=query_image_feats,
-            target_pred_boxes=target_pred_boxes,
-            query_pred_boxes=query_pred_boxes,
-            logits=pred_logits,
-            class_embeds=class_embeds,
-            text_model_output=None,
-            vision_model_output=vision_outputs,
+            pred_logits=pred_logits,
+            pred_boxes=target_pred_boxes
         )

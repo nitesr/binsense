@@ -1,5 +1,8 @@
+from typing import Tuple, Union, List
+from torch import Tensor
+
 import numpy as np
-from typing import Tuple
+
 import torch
 
 def center_to_corners_torch(bboxes_center: torch.Tensor):
@@ -71,3 +74,40 @@ def scale_bboxes(bboxes_corners: np.ndarray, img_size: Tuple[int, int]) -> np.ar
     scaled_bboxes = bboxes_corners * scale_fct
     scaled_bboxes = scaled_bboxes.astype(np.int32)
     return scaled_bboxes
+
+def _clone(v: Union[Tensor, np.ndarray]) -> Tensor | np.ndarray:
+    return v.detach().clone().to(torch.float32) \
+        if isinstance(v, Tensor) \
+        else np.copy(v).astype(dtype=np.float32)
+
+def convert_cxy_xy_and_scale(
+    bboxes_cxy: Union[Tensor, np.ndarray], 
+    img_size: Tuple[int, int]) -> np.ndarray | Tensor:
+    """
+    converts cxy to xy and then scales with the image size
+    Args:
+        bboxes_cxy (`Tensor` | 'np.ndarray`): normalized bboxes with center, w & h.
+        img_size: width, height 
+    """
+    bboxes_cxy = _clone(bboxes_cxy)
+    bboxes_xy = center_to_corners(bboxes_cxy)
+    bboxes_xy[:,[0, 2]] = bboxes_xy[:,[0, 2]] * img_size[0]
+    bboxes_xy[:,[1, 3]] = bboxes_xy[:,[1, 3]] * img_size[1]
+    
+    return bboxes_xy
+
+def convert_xy_cxy_and_unscale(
+    bboxes_xy: Union[Tensor, np.ndarray], 
+    img_size: Tuple[int, int]) -> np.ndarray | Tensor:
+    """
+    converts xy to cxy and then normalizes with the image size
+    Args:
+        bboxes_xy (`Tensor` | 'np.ndarray`): bboxes with corners in img size.
+        img_size: width, height to normalize the xy
+    """
+    
+    bboxes_xy = _clone(bboxes_xy)
+    bboxes_cxy = corner_to_centers(bboxes_xy)
+    bboxes_cxy[:,[0, 2]] = bboxes_cxy[:,[0, 2]] / img_size[0]
+    bboxes_cxy[:,[1, 3]] = bboxes_cxy[:,[1, 3]] / img_size[1]
+    return bboxes_cxy

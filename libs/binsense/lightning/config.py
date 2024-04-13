@@ -1,0 +1,27 @@
+from .. import config as cfg
+
+from dataclasses import dataclass
+import os
+
+@dataclass
+class Config:
+    data_dirpath: str = cfg.BIN_DATA_DIR
+    data_csv_filepath: str = os.path.join(cfg.BIN_DATA_DIR, 'inimage_queries.csv')
+    embed_store_dirpath: str = os.path.join(cfg.BIN_DATA_DIR, 'embed_store')
+    chkpt_dirpath: str = os.path.join(cfg.BIN_DATA_DIR, 'chkpts')
+    
+    tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'tb')
+    learning_rate: float = 1e-3
+    epochs: int = 100
+    min_epochs: int = 10
+    max_epochs: int = 500
+    batch_size: int = 8
+    num_workers: int = 0
+    
+    bbox_loss_coef: float = 1.0
+    giou_loss_coef: float = 1.0
+    label_loss_coef: float = 1.0
+    eos_coef: float = 0.1
+    iou_threshold = 0.98
+    nms_threshold = 1
+    score_threshold = 0.98

@@ -423,15 +423,23 @@ class Yolov8Serializer(YoloSerializer):
     def __init__(self, dataset: YoloDataset) -> None:
         super(Yolov8Serializer, self).__init__(dataset)
     
-    def _create_index(self, root_path: str, labels: List[LabelData]):
+    def _create_index(self, 
+        root_path: str, labels: List[LabelData], 
+        exclude_tags: List[DataTag] = []):
         labels = sorted(labels, key=lambda l: l.id)
         
         index_file = os.path.join(root_path, 'data.yaml')
         with open(index_file, 'w') as f:
-            f.write('train: ../train/images')
+            if not DataTag.TRAIN in exclude_tags:
+                f.write('train: ../train/images')
+                f.write('\n')
+            if not DataTag.VALID in exclude_tags:
+                f.write('val: ../valid/images')
+                f.write('\n')
+            if not DataTag.TEST in exclude_tags:
+                f.write('test: ../test/images')
+                f.write('\n')
             f.write('\n')
-            f.write('val: ../valid/images')
-            f.write('\n\n')
             f.write('names:\n')
             for i, l in enumerate(labels):
                 f.write(f" {i}: '{l.name}'\n")
@@ -449,7 +457,7 @@ class Yolov8Serializer(YoloSerializer):
             self._move_image(root_path, img_data)
             self._create_ann(root_path, img_data, bboxes_data)
             
-        self._create_index(root_path, self._get_labels())
+        self._create_index(root_path, self._get_labels(), exclude_tags)
 
 class YoloDatasetBuilder(DatasetBuilder):
     def __init__(self) -> None:

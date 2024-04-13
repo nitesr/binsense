@@ -133,6 +133,8 @@ def show_bbox_ingrid(
     fig, axs = plt.subplots(rows, cols, figsize=(cols*3, rows*3))
     if rows == 1:
         axs = [axs]
+    if cols == 1:
+        axs = [axs]
         
     for i in range(0, rows):
         for j in range(0, cols):

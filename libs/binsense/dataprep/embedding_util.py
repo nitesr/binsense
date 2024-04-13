@@ -3,7 +3,7 @@ from ..dataset_util import DataTag, Dataset as BinsenseDataset, Yolov8Deserializ
 from ..embed_datastore import SafeTensorEmbeddingDatastore
 from .dataset import BestBBoxDataset
 from ..lightning.model import LitImageEmbedder
-from ..lightning.model_spec import ImageEmbedder
+from ..lightning.spec import ImageEmbedder
 from ..utils import get_default_on_none
 
 from typing import Union

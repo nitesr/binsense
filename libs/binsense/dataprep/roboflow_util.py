@@ -305,8 +305,7 @@ class RoboflowDatasetCopier:
         return test_dataset[test_dataset.image_name.isin(sampled_images)]
         
     def _copy_test_dataset(
-        self, test_dataset: pd.DataFrame, 
-        src_ds: Dataset,
+        self, test_dataset: pd.DataFrame,
         dst_ds: DatasetBuilder,
         dst_image_names: List[str],
         dst_category_dict: Dict[str, int]) -> None:
@@ -347,7 +346,7 @@ class RoboflowDatasetCopier:
         test_dataset = full_dataset.query(f'tag == "{DataTag.TEST.value}"').reset_index(drop=True)
         test_dataset = self._filter_testset(test_dataset, rf_meta_df)
         test_dataset = self._sample_testset(test_dataset, rf_meta_images)
-        self._copy_test_dataset(test_dataset, ds, filtered_ds, rf_meta_images, dst_category_dict)
+        self._copy_test_dataset(test_dataset, dst_ds=filtered_ds, dst_image_names=rf_meta_images, dst_category_dict=dst_category_dict)
         
         dst_ds = filtered_ds.build()
         def get_ds_count(split_tag: DataTag):
