@@ -159,6 +159,7 @@ class LitInImageQuerier(L.LightningModule):
         assert preds is not None
         assert targets is not None
         
+        device = preds['pred_boxes'].device
         if len(preds['pred_boxes']) != len(targets["count"]):
             logger.error(f'''
                 idxs={input_idx}, 
@@ -169,8 +170,8 @@ class LitInImageQuerier(L.LightningModule):
         pred_counts = []
         target_counts = []
         for i, pred_boxes in enumerate(preds['pred_boxes']):
-            pred_counts.append(tutls.to_int_tensor(pred_boxes.shape[0]))
-            target_counts.append(targets["count"][i])
+            pred_counts.append(tutls.to_int_tensor(pred_boxes.shape[0]).to(device))
+            target_counts.append(targets["count"][i].to(device))
         
         pred = torch.stack(pred_counts, dim=0)
         tgt = torch.stack(target_counts, dim=0)
