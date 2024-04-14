@@ -144,9 +144,23 @@ python -m binsense.cli.run_embeds_validator --validate
 prerequisite: dataprep scripts are executed
 ```
 python -m binsense.cli.owlv2.train --build_dataset
-python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=4  --devices 1 --fast_dev_run=1
+python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=1
 
-nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --epochs 10 num_workers=3 > ./_logs/run_owlv2_train.log 2>&1 </dev/null &
+nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --epochs=50 --num_workers=3 > ./_logs/run_owlv2_train.log 2>&1 </dev/null &
+```
+
+### aws sync logs & checkpoints
+prerequisite: create binsense bucker and add folder _logs
+```
+aws configure
+crontab -e
+# add below line to crontab
+# */5 * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1
+```
+
+### Tensorboard
+```
+tensorboard --logdir ~/binsense/_logs/tb --port 6006 --bind_all
 ```
 
 

@@ -75,6 +75,10 @@ class OwlV2InImageQuerier(InImageQuerier):
         for p in self.model.vision_model.parameters():
             p.requires_grad = False
         
+        #freeze the class embed parameters
+        for p in self.model.class_head.dense0.parameters():
+            p.requires_grad = False
+        
         self._processor = OwlImageProcessor()
         
     def processor(self) -> ImageProcessor:

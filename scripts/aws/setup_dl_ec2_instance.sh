@@ -151,7 +151,7 @@ function create_sg () {
         SG_ID=$(aws ec2 describe-security-groups --group-name $SG_NAME --query 'SecurityGroups[0].GroupId' --profile $PROFILE | tr -d '"')
         echo "$SG_NAME security group is created, id=$SG_ID"
 
-        aws ec2 authorize-security-group-ingress --group-name $SG_NAME --ip-permissions "[ {  \"IpProtocol\":  \"tcp\",  \"FromPort\": 22,  \"ToPort\": 22,  \"IpRanges\": [ {  \"CidrIp\":  \"0.0.0.0/0\" } ] }, {  \"IpProtocol\":  \"tcp\",  \"FromPort\": 6600,  \"ToPort\": 6600,  \"IpRanges\": [ {  \"CidrIp\":  \"0.0.0.0/0\" } ] } ]" --output yaml --profile $PROFILE
+        aws ec2 authorize-security-group-ingress --group-name $SG_NAME --ip-permissions "[ {  \"IpProtocol\":  \"tcp\",  \"FromPort\": 22,  \"ToPort\": 22,  \"IpRanges\": [ {  \"CidrIp\":  \"0.0.0.0/0\" } ] }, {  \"IpProtocol\":  \"tcp\",  \"FromPort\": 6006,  \"ToPort\": 6006,  \"IpRanges\": [ {  \"CidrIp\":  \"0.0.0.0/0\" } ] } ]" --output yaml --profile $PROFILE
         [ $? -eq 0 ] && echo "ingres set to ssh from any port for $SG_NAME security group"
     fi
 }

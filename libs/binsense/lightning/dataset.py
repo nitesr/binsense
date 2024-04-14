@@ -220,7 +220,7 @@ class _Dataset(TorchDataset):
         return len(self.data_index)
     
     def _format_bbox_coords(self, bbox_count: int, bbox_coords: str) -> Tensor:
-        if bbox_count == 0:
+        if bbox_count == 0 or not isinstance(bbox_coords, str):
             return tutls.empty_float_tensor()
         
         coords = torch.as_tensor(list(map(np.float32, bbox_coords.split())))
@@ -292,7 +292,7 @@ class LitInImageQuerierDM(L.LightningDataModule):
         self.num_workers = num_workers
     
     def setup(self, stage: str) -> None:
-        self.data_df = pd.read_csv(self.csv_filepath)
+        self.data_df = pd.read_csv(self.csv_filepath, dtype={'bbox_coords': str})
         self.train_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='train', transform=self.transform)
         self.val_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='valid', transform=self.transform)
         self.test_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='test', transform=self.transform)
@@ -317,7 +317,7 @@ class LitInImageQuerierDM(L.LightningDataModule):
             shuffle=True)
     
     def val_dataloader(self) -> TorchDataLoader:
-        return TorchDataLoader(self.val_ds, self.batch_size, collate_fn=_collate_fn)
+        return TorchDataLoader(self.val_ds, self.batch_size, collate_fn=_collate_fn, num_workers=self.num_workers)
     
     def test_dataloader(self) -> TorchDataLoader:
         return TorchDataLoader(self.test_ds, self.batch_size, collate_fn=_collate_fn)

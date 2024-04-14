@@ -3,7 +3,7 @@ from .spec import InImageQuerier, ImageEmbedder
 from .spec import MultiBoxLoss
 from ..embed_datastore import EmbeddingDatastore, SafeTensorEmbeddingDatastore
 from .config import Config
-from ..utils import get_default_on_none
+from ..utils import get_default_on_none, backup_file
 from ..img_utils import corner_to_centers
 from .losses import DETRMultiBoxLoss
 from .. import torch_utils as tutls
@@ -15,7 +15,7 @@ from torchvision.ops import box_iou
 from typing import Any, List, Dict, Tuple, Mapping
 import lightning as L
 
-import torch, logging
+import torch, logging, os
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ class LitInImageQuerier(L.LightningModule):
         
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
+        self.results_csvpath = self.cfg.results_csv_filepath
         
         # Lightning expects the metrics to be defined as module variables
         self.train_exists_acc = QueryAccuracy(criteria="exists")
@@ -103,7 +104,7 @@ class LitInImageQuerier(L.LightningModule):
         return optimizer
     
     @torch.no_grad()
-    def select_preds(self, outputs) -> List[Dict[str, Tensor]]:
+    def select_preds(self, outputs: Dict[str, Tensor]) -> Dict[str, List]:
         """
         filter out the crowd
         """
@@ -210,7 +211,7 @@ class LitInImageQuerier(L.LightningModule):
     
     def training_step(self, batch, batch_idx) -> Tensor:
         losses, outputs = self._common_step(batch)
-        return {'loss': losses['loss'], 'losses': losses, 'outputs': outputs}
+        return {'loss': losses['loss'], 'losses': losses, 'outputs': outputs, "input_idx": batch[0]["idx"]}
     
     def on_train_batch_end(self, outputs: Tensor | Mapping[str, Any] | None, batch: Any, batch_idx: int) -> None:
         batch_outputs = outputs['outputs']
@@ -221,7 +222,7 @@ class LitInImageQuerier(L.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         losses, outputs = self._common_step(batch)
-        return {'loss': losses['loss'], 'losses': losses, 'outputs': outputs}
+        return {'loss': losses['loss'], 'losses': losses, 'outputs': outputs, "input_idx": batch[0]["idx"] }
     
     def on_validation_batch_end(self, outputs: Tensor | Mapping[str, Any] | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
         batch_outputs = outputs['outputs']
@@ -230,13 +231,46 @@ class LitInImageQuerier(L.LightningModule):
         accs = self._compute_metrics(preds, batch[1], 'val', batch[0]["idx"])
         self._log_losses_metrics(batch_losses, accs, 'val', on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
     
-    def test_step(self, batch, batch_idx):
-        outputs = self.model(batch[0])
-        preds = self.select_preds(outputs)
+    def _initialize_pred_results_file(self) -> None:
+        if self.trainer.is_global_zero:
+            if os.path.exists(self.results_csvpath):
+                bkp_fp = backup_file(self.results_csvpath)
+                logger.info(f'backing up {self.results_csvpath} to {bkp_fp}')
+            with open(self.results_csvpath, 'w') as f:
+                f.write('input_idx,pred_boxes_count,pred_boxes_coords')
+                f.write('\n')
+    
+    def _log_pred_results(self, outputs: Tensor | Mapping[str, Any] | None, fpath: str) -> None:
+        batch_input_idx = self.all_gather(outputs['input_idx'])
+        batch_pred_boxes = self.all_gather(outputs['outputs']['pred_boxes'])
+        batch_pred_logits = self.all_gather(outputs['outputs']['pred_logits'])
+        
+        if self.trainer.is_global_zero:
+            # flatten the device index, in case the shape is more than expected.
+            batch_input_idx = batch_input_idx.flatten(0, 1) if len(batch_input_idx.shape) > 1 else batch_input_idx
+            batch_pred_boxes = batch_pred_boxes.flatten(0, 1) if len(batch_pred_boxes.shape) > 3 else batch_pred_boxes
+            batch_pred_logits = batch_pred_logits.flatten(0, 1) if len(batch_pred_logits.shape) > 3 else batch_pred_logits
+            preds = self.select_preds({"pred_boxes": batch_pred_boxes, 'pred_logits': batch_pred_logits})
+            with open(fpath, 'a') as f:
+                for i, input_idx in enumerate(batch_input_idx):
+                    pred_boxes = preds['pred_boxes'][i]
+                    pred_boxes_coords = ' '.join([str(t.item()) for t in pred_boxes.flatten()])
+                    f.write(f'{input_idx},{pred_boxes.shape[0]},{pred_boxes_coords}')
+    
+    def on_test_start(self) -> None:
+        self._initialize_pred_results_file()
+    
+    def on_test_batch_end(self, outputs: Tensor | Mapping[str, Any] | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        batch_outputs = outputs['outputs']
+        preds = self.select_preds(batch_outputs)
         accs = self._compute_metrics(preds, batch[1], 'test', batch[0]["idx"])
         for name, metric in accs.items():
             self.log(name, metric, on_step=True, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
-        return preds
+        self._log_pred_results(outputs, self.results_csvpath)
+    
+    def test_step(self, batch, batch_idx):
+        outputs = self.model(batch[0])
+        return {'outputs': outputs, "input_idx": batch[0]["idx"]}
     
     def predict_step(self, batch) -> Any:
         inputs = batch[0]
