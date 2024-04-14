@@ -25,4 +25,4 @@ class Config:
     eos_coef: float = 1.0
     iou_threshold = 0.98
     nms_threshold = 1
-    score_threshold = 0.98
+    score_threshold = 0.998
