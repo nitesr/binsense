@@ -54,6 +54,23 @@ def train(baseline_model: bool = True, epochs: int = None, batch_size: int = Non
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
+def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, **kwargs):
+    cfg = TrainConfig()
+    
+    # TODO: change it to get directly from TrainConfig
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    data_module = LitInImageQuerierDM(
+        data_dir=cfg.data_dirpath,
+        csv_filepath=cfg.data_csv_filepath, 
+        batch_size=batch_size, 
+        num_workers=num_workers, transform=_get_transform_fn(embed_ds))
+    
+    model = _get_baseline_model() if baseline_model else None
+    lmodel = LitInImageQuerier(model)
+    trainer = L.Trainer(**kwargs)
+    ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
+    trainer.test(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s : %(message)s')
     parser = argparse.ArgumentParser()
@@ -120,6 +137,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "--train", help="train the model", action="store_true")
     
+    parser.add_argument(
+        "--test", help="test the model", action="store_true")
+    
     args = parser.parse_args()
     if args.build_dataset:
         build_dataset()
@@ -129,6 +149,22 @@ if __name__ == '__main__':
         train(
             baseline_model=args.baseline_model,
             epochs=args.epochs,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            ckpt_fname=args.ckpt_fname,
+            logger=tlogger,
+            fast_dev_run=args.fast_dev_run,
+            devices=args.devices,
+            strategy=args.strategy,
+            num_nodes=args.num_nodes,
+            min_epochs=args.min_epochs,
+            max_epochs=args.max_epochs,
+            profiler=args.profiler
+        )
+    elif args.test:
+        tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
+        test(
+            baseline_model=args.baseline_model,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
