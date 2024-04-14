@@ -256,6 +256,7 @@ class LitInImageQuerier(L.LightningModule):
                     pred_boxes = preds['pred_boxes'][i]
                     pred_boxes_coords = ' '.join([str(t.item()) for t in pred_boxes.flatten()])
                     f.write(f'{input_idx},{pred_boxes.shape[0]},{pred_boxes_coords}')
+                    f.write('\n')
     
     def on_test_start(self) -> None:
         self._initialize_pred_results_file()

@@ -320,7 +320,7 @@ class LitInImageQuerierDM(L.LightningDataModule):
         return TorchDataLoader(self.val_ds, self.batch_size, collate_fn=_collate_fn, num_workers=self.num_workers)
     
     def test_dataloader(self) -> TorchDataLoader:
-        return TorchDataLoader(self.test_ds, self.batch_size, collate_fn=_collate_fn)
+        return TorchDataLoader(self.test_ds, self.batch_size, collate_fn=_collate_fn, num_workers=self.num_workers)
     
     def teardown(self, stage: str) -> None:
         # nothing to teardown
