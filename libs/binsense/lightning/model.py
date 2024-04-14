@@ -51,7 +51,9 @@ class LitInImageQuerier(L.LightningModule):
         self, 
         model: InImageQuerier, 
         loss: MultiBoxLoss = None,
-        cfg: Config = None) -> None:
+        cfg: Config = None,
+        results_csvpath: str = None,
+    ) -> None:
         super(LitInImageQuerier, self).__init__()
         
         self.model = model
@@ -66,7 +68,7 @@ class LitInImageQuerier(L.LightningModule):
         
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
-        self.results_csvpath = self.cfg.results_csv_filepath
+        self.results_csvpath = get_default_on_none(results_csvpath, self.cfg.results_csv_filepath)
         
         # Lightning expects the metrics to be defined as module variables
         self.train_exists_acc = QueryAccuracy(criteria="exists")

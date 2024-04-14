@@ -36,7 +36,7 @@ def build_dataset():
     csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg).build()
     print(f"dataset built @ {csv_path}")
 
-def train(baseline_model: bool = True, epochs: int = None, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, **kwargs):
+def train(baseline_model: bool = True, epochs: int = None, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
     cfg = TrainConfig()
     
     # TODO: change it to get directly from TrainConfig
@@ -54,7 +54,7 @@ def train(baseline_model: bool = True, epochs: int = None, batch_size: int = Non
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
-def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, **kwargs):
+def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
     cfg = TrainConfig()
     
     # TODO: change it to get directly from TrainConfig
@@ -66,7 +66,10 @@ def test(baseline_model: bool = True, batch_size: int = None, num_workers: int =
         num_workers=num_workers, transform=_get_transform_fn(embed_ds))
     
     model = _get_baseline_model() if baseline_model else None
-    lmodel = LitInImageQuerier(model)
+    lmodel = LitInImageQuerier(
+        model, 
+        results_csvpath=os.path.join(cfg.data_dirpath, f'testresults_{experiment_version}.csv')
+    )
     trainer = L.Trainer(**kwargs)
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.test(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
@@ -124,8 +127,7 @@ if __name__ == '__main__':
         default='auto')
     
     parser.add_argument(
-        "--experiment_version", help="experiment version", type=str,
-        default='v0')
+        "--experiment_version", help="experiment version", type=str)
     
     parser.add_argument(
         "--profiler", help="profiline", type=str,
@@ -159,7 +161,8 @@ if __name__ == '__main__':
             num_nodes=args.num_nodes,
             min_epochs=args.min_epochs,
             max_epochs=args.max_epochs,
-            profiler=args.profiler
+            profiler=args.profiler,
+            experiment_version=args.experiment_version
         )
     elif args.test:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
@@ -175,6 +178,7 @@ if __name__ == '__main__':
             num_nodes=args.num_nodes,
             min_epochs=args.min_epochs,
             max_epochs=args.max_epochs,
-            profiler=args.profiler
+            profiler=args.profiler,
+            experiment_version=args.experiment_version
         )
         sys.exit(0)
