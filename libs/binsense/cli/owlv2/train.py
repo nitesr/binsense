@@ -10,6 +10,7 @@ from ...lightning.owlv2_model import OwlV2InImageQuerier
 from ...lightning.model import LitInImageQuerier
 from ...embed_datastore import SafeTensorEmbeddingDatastore
 from lightning.pytorch.loggers import TensorBoardLogger
+from ...utils import get_default_on_none, default_on_none
 
 import lightning as L
 import logging, argparse, os, sys
@@ -36,8 +37,18 @@ def build_dataset():
     csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg).build()
     print(f"dataset built @ {csv_path}")
 
-def train(baseline_model: bool = True, epochs: int = None, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
+def _sync_config(epochs: int = None, batch_size: int = None, num_workers: int = 0, learning_rate: float= None, **kwargs):
     cfg = TrainConfig()
+    cfg.batch_size = get_default_on_none(batch_size, cfg.batch_size)
+    cfg.num_workers = get_default_on_none(num_workers, cfg.num_workers)
+    cfg.epochs = get_default_on_none(epochs, cfg.epochs)
+    cfg.learning_rate = get_default_on_none(learning_rate, cfg.learning_rate)
+    
+    print(cfg)
+    return cfg
+
+def train(baseline_model: bool = True, epochs: int = None, batch_size: int = None, learning_rate: float= None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
+    cfg = _sync_config(epochs=epochs, batch_size=batch_size, num_workers=num_workers, learning_rate=learning_rate, **kwargs)
     
     # TODO: change it to get directly from TrainConfig
     embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
@@ -48,14 +59,14 @@ def train(baseline_model: bool = True, epochs: int = None, batch_size: int = Non
         num_workers=num_workers, transform=_get_transform_fn(embed_ds))
     
     model = _get_baseline_model() if baseline_model else None
-    lmodel = LitInImageQuerier(model)
+    lmodel = LitInImageQuerier(model, cfg=cfg)
     
     trainer = L.Trainer(**kwargs)
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
-def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
-    cfg = TrainConfig()
+def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, learning_rate: float = None, experiment_version: str = None, **kwargs):
+    cfg = _sync_config(epochs=1, batch_size=batch_size, num_workers=num_workers, **kwargs)
     
     # TODO: change it to get directly from TrainConfig
     embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
@@ -67,7 +78,7 @@ def test(baseline_model: bool = True, batch_size: int = None, num_workers: int =
     
     model = _get_baseline_model() if baseline_model else None
     lmodel = LitInImageQuerier(
-        model, 
+        model, cfg=cfg,
         results_csvpath=os.path.join(cfg.data_dirpath, f'testresults_{experiment_version}.csv')
     )
     trainer = L.Trainer(**kwargs)
@@ -79,6 +90,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     cfg = TrainConfig()
 
+    parser.add_argument(
+        "--learning_rate", help="learning rate", type=float,
+        default=cfg.learning_rate)
+    
     parser.add_argument(
         "--epochs", help="number of epochs", type=int,
         default=cfg.epochs)
@@ -162,7 +177,8 @@ if __name__ == '__main__':
             min_epochs=args.min_epochs,
             max_epochs=args.max_epochs,
             profiler=args.profiler,
-            experiment_version=args.experiment_version
+            experiment_version=args.experiment_version,
+            learning_rate=args.learning_rate
         )
     elif args.test:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)

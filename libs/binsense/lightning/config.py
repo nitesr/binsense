@@ -12,7 +12,7 @@ class Config:
     results_csv_filepath: str = os.path.join(cfg.BIN_DATA_DIR, 'test_results.csv')
     
     tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'tb')
-    learning_rate: float = 1e-3
+    learning_rate: float = 1e-7
     epochs: int = 100
     min_epochs: int = 10
     max_epochs: int = 500

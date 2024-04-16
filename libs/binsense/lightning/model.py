@@ -50,22 +50,19 @@ class LitInImageQuerier(L.LightningModule):
     def __init__(
         self, 
         model: InImageQuerier, 
-        loss: MultiBoxLoss = None,
         cfg: Config = None,
         results_csvpath: str = None,
     ) -> None:
         super(LitInImageQuerier, self).__init__()
         
         self.model = model
-        
         self.cfg = get_default_on_none(cfg, Config())
-        self.loss = get_default_on_none(
-            loss, 
-            DETRMultiBoxLoss(
+        
+        self.save_hyperparameters("cfg")
+        
+        self.loss = DETRMultiBoxLoss(
                 self.cfg.reg_loss_coef, self.cfg.giou_loss_coef, 
                 self.cfg.label_loss_coef, self.cfg.eos_coef)
-        )
-        
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
         self.results_csvpath = get_default_on_none(results_csvpath, self.cfg.results_csv_filepath)
