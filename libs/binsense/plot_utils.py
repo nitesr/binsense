@@ -27,6 +27,7 @@ def plot_bboxes(
     
     draw_img = cv_img.copy()
     if bboxes is None or len(bboxes) == 0:
+        ax.imshow(draw_img, cmap = plt.cm.Spectral)
         return
     
     label_txts = []
