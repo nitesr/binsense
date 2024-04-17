@@ -37,18 +37,28 @@ def build_dataset():
     csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg).build()
     print(f"dataset built @ {csv_path}")
 
-def _sync_config(epochs: int = None, batch_size: int = None, num_workers: int = 0, learning_rate: float= None, **kwargs):
+def _sync_config(batch_size: int = None, num_workers: int = 0, learning_rate: float= None, **kwargs):
     cfg = TrainConfig()
     cfg.batch_size = get_default_on_none(batch_size, cfg.batch_size)
     cfg.num_workers = get_default_on_none(num_workers, cfg.num_workers)
-    cfg.epochs = get_default_on_none(epochs, cfg.epochs)
     cfg.learning_rate = get_default_on_none(learning_rate, cfg.learning_rate)
     
-    print(cfg)
-    return cfg
+    for k in cfg.__dict__:
+        cfg.__dict__[k] = kwargs.pop(k, cfg.__dict__[k])
+    
+    print('Config: ', cfg)
+    return cfg, kwargs
 
-def train(baseline_model: bool = True, epochs: int = None, batch_size: int = None, learning_rate: float= None, num_workers: int = 0, ckpt_fname: str = None, experiment_version: str = None, **kwargs):
-    cfg = _sync_config(epochs=epochs, batch_size=batch_size, num_workers=num_workers, learning_rate=learning_rate, **kwargs)
+def train(
+    baseline_model: bool = True, 
+    batch_size: int = None, 
+    learning_rate: float= None, 
+    num_workers: int = 0, 
+    ckpt_fname: str = None,
+    **kwargs):
+    cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, learning_rate=learning_rate, **kwargs)
+    
+    print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
     embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
@@ -61,12 +71,22 @@ def train(baseline_model: bool = True, epochs: int = None, batch_size: int = Non
     model = _get_baseline_model() if baseline_model else None
     lmodel = LitInImageQuerier(model, cfg=cfg)
     
-    trainer = L.Trainer(**kwargs)
+    trainer = L.Trainer(
+        min_epochs=cfg.min_epochs, 
+        max_epochs=cfg.max_epochs, 
+        **kwargs)
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
-def test(baseline_model: bool = True, batch_size: int = None, num_workers: int = 0, ckpt_fname: str = None, learning_rate: float = None, experiment_version: str = None, **kwargs):
-    cfg = _sync_config(epochs=1, batch_size=batch_size, num_workers=num_workers, **kwargs)
+def test(
+    baseline_model: bool = True, 
+    batch_size: int = None, 
+    num_workers: int = 0, 
+    ckpt_fname: str = None,
+    experiment_version: str = None,
+    **kwargs):
+    cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, **kwargs)
+    print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
     embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
@@ -95,10 +115,6 @@ if __name__ == '__main__':
         default=cfg.learning_rate)
     
     parser.add_argument(
-        "--epochs", help="number of epochs", type=int,
-        default=cfg.epochs)
-    
-    parser.add_argument(
         "--min_epochs", help="minimum number of epochs", type=int,
         default=cfg.min_epochs)
     
@@ -109,6 +125,26 @@ if __name__ == '__main__':
     parser.add_argument(
         "--batch_size", help="batch size", type=int,
         default=cfg.batch_size)
+    
+    parser.add_argument(
+        "--score_threshold", help="score_threshold value", type=float,
+        default=cfg.score_threshold)
+    
+    parser.add_argument(
+        "--nms_threshold", help="nms_threshold value", type=float,
+        default=cfg.nms_threshold)
+    
+    parser.add_argument(
+        "--iou_threshold", help="iou_threshold value", type=float,
+        default=cfg.iou_threshold)
+    
+    parser.add_argument(
+        "--eos_coef", help="no object weight coef value", type=float,
+        default=cfg.eos_coef)
+    
+    parser.add_argument(
+        "--use_focal_loss", help="use focal loss instead", type=bool,
+        default=cfg.use_focal_loss)
     
     parser.add_argument(
         "--num_workers", help="Number of dataloader workers", type=int,
@@ -165,7 +201,6 @@ if __name__ == '__main__':
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
         train(
             baseline_model=args.baseline_model,
-            epochs=args.epochs,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
@@ -178,7 +213,12 @@ if __name__ == '__main__':
             max_epochs=args.max_epochs,
             profiler=args.profiler,
             experiment_version=args.experiment_version,
-            learning_rate=args.learning_rate
+            learning_rate=args.learning_rate,
+            score_threshold=args.score_threshold,
+            iou_threshold=args.iou_threshold,
+            nms_threshold=args.nms_threshold,
+            eos_coef=args.eos_coef,
+            use_focal_loss=args.use_focal_loss
         )
     elif args.test:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
@@ -195,6 +235,9 @@ if __name__ == '__main__':
             min_epochs=args.min_epochs,
             max_epochs=args.max_epochs,
             profiler=args.profiler,
-            experiment_version=args.experiment_version
+            experiment_version=args.experiment_version,
+            score_threshold=args.score_threshold,
+            iou_threshold=args.iou_threshold,
+            nms_threshold=args.nms_threshold,
         )
         sys.exit(0)

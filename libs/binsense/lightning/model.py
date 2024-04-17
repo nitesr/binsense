@@ -265,6 +265,7 @@ class LitInImageQuerier(L.LightningModule):
     
     def on_validation_epoch_end(self) -> None:
         self._log_conf_matrix('val')
+        self.conf_matrix['val'].reset()
     
     def _initialize_pred_results_file(self) -> None:
         if self.trainer.is_global_zero:
@@ -298,6 +299,7 @@ class LitInImageQuerier(L.LightningModule):
     
     def on_train_epoch_end(self) -> None:
         self._log_conf_matrix('test')
+        self.conf_matrix['test'].reset()
     
     def on_test_batch_end(self, outputs: Tensor | Mapping[str, Any] | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
         batch_outputs = outputs['outputs']
