@@ -143,7 +143,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
     
     def _calc_label_loss(self, pred_logits, gt_labels, matching_indices=None):
         if self.use_focal:
-            return self._calc_ce_label_loss(pred_logits, gt_labels, matching_indices)
+            return self._calc_focal_label_loss(pred_logits, gt_labels, matching_indices)
         else:
             return self._calc_ce_label_loss(pred_logits, gt_labels, matching_indices)
         
