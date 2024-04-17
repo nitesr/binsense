@@ -18,8 +18,6 @@ from typing import Any, List, Dict, Tuple, Mapping
 from matplotlib import pyplot as plt
 
 import lightning as L
-import pandas as pd
-import seaborn as sns
 
 import torch, logging, os
 
@@ -231,12 +229,10 @@ class LitInImageQuerier(L.LightningModule):
             return
         
         tblogger = self.logger.experiment
-        confusion_matrix_computed = self.conf_matrix[step].compute().detach().cpu().numpy().astype(int)
-        df_cm = pd.DataFrame(confusion_matrix_computed)
-        plt.figure(figsize = (10,7))
-        fig_ = sns.heatmap(df_cm, annot=True, cmap='Spectral').get_figure()
-        plt.close(fig_)
-        tblogger.experiment.add_figure(f"{step}_confusion_matrix", fig_, self.current_epoch)
+        fig, ax = plt.subplots(1, 1, figsize = (10,7))
+        fig, _ = self.conf_matrix[step].plot(ax=ax)
+        plt.close(fig)
+        tblogger.experiment.add_figure(f"{step}_confusion_matrix", fig, self.current_epoch)
     
     def _common_step(self, batch) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         inputs = batch[0]
