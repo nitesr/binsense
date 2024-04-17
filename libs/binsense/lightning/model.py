@@ -213,7 +213,7 @@ class LitInImageQuerier(L.LightningModule):
         tgt_classes = tgt.clone()
         pred_classes[pred_classes > 4] = 5
         tgt_classes[tgt_classes > 4] = 5
-        self.conf_matrix[step](pred, tgt)
+        self.conf_matrix[step](pred_classes, tgt_classes)
         
         return metrics
     
