@@ -163,13 +163,13 @@ class Owlv2ClassPredictionHead(nn.Module):
         logit_scale = self.elu(logit_scale) + 1
         pred_logits = (pred_logits + logit_shift) * logit_scale
 
-        # if query_mask is not None:
-        #     if query_mask.ndim > 1:
-        #         query_mask = torch.unsqueeze(query_mask, dim=-2)
+        if query_mask is not None:
+            if query_mask.ndim > 1:
+                query_mask = torch.unsqueeze(query_mask, dim=-2)
 
-        #     pred_logits = pred_logits.to(torch.float64)
-        #     pred_logits = torch.where(query_mask == 0, -1e6, pred_logits)
-        #     pred_logits = pred_logits.to(torch.float32)
+            pred_logits = pred_logits.to(torch.float64)
+            pred_logits = torch.where(query_mask == 0, -1e6, pred_logits)
+            pred_logits = pred_logits.to(torch.float32)
 
         return (pred_logits, image_class_embeds)
 
@@ -499,7 +499,7 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         query_embeddings = F.pad(query_embeddings, (0, 0, 0, 1), 'constant', 0)
         query_mask = torch.full(query_embeddings.shape[:2], 1, dtype=query_embeddings.dtype, device=query_embeddings.device)
         query_mask[:, -1] = 0
-        (pred_logits, class_embeds) = self.class_predictor(image_feats=image_feats, query_embeds=query_embeddings)
+        (pred_logits, class_embeds) = self.class_predictor(image_feats=image_feats, query_embeds=query_embeddings, query_mask=query_mask)
         
         # Predict objectness
         # objectness_logits = self.objectness_predictor(image_feats)

@@ -4,6 +4,7 @@ from binsense.matcher import HungarianMatcher
 
 from torch.nn import functional as F
 from torchvision.ops import generalized_box_iou
+from torchvision.ops import sigmoid_focal_loss
 from collections import OrderedDict
 
 from typing import Dict
@@ -18,7 +19,10 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         reg_loss_coef: float = 1.0,
         giou_loss_coef: float = 1.0,
         label_loss_coef: float = 1.0,
-        eos_coef: float = 0.1):
+        eos_coef: float = 0.1,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2.0,
+        use_focal_loss: bool = False):
         super(DETRMultiBoxLoss, self).__init__()
         """
         creates the object detection loss used in DETR 
@@ -31,6 +35,10 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         self.reg_loss_coef = reg_loss_coef
         self.giou_loss_coef = giou_loss_coef
         self.eos_coef = eos_coef
+        
+        self.use_focal = use_focal_loss
+        self.focal_loss_alpha = focal_loss_alpha
+        self.focal_loss_gamma = focal_loss_gamma
 
          # TODO: do we need same weights
         self.matcher = HungarianMatcher(
@@ -77,7 +85,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         
         return loss_reg, loss_giou
     
-    def _calc_label_loss(self, pred_logits, gt_labels, matching_indices=None):
+    def _calc_ce_label_loss(self, pred_logits, gt_labels, matching_indices=None):
         # for label loss we will do it on entire prediction logits
         #   build the canvas of size prediction logits with label as no-object
         #   and update it with ground truth labels for the matching ones.
@@ -100,8 +108,45 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         
         empty_weight = torch.ones(num_classes, device=pred_logits.device)
         empty_weight[-1] = self.eos_coef
-        return F.cross_entropy(src_logits.transpose(1, 2), tgt_classes, empty_weight)
+        return F.cross_entropy(src_logits.transpose(1, 2), tgt_classes, empty_weight, reduction='mean')
     
+    def _calc_focal_label_loss(self, pred_logits, gt_labels, matching_indices=None):
+        # for label loss we will do it on entire prediction logits
+        #   build the canvas of size prediction logits with label as no-object
+        #   and update it with ground truth labels for the matching ones.
+        # note: the indices can be out of order in col i.e. on ground truths)
+        
+        num_classes = pred_logits.shape[-1]
+        src_logits = pred_logits
+        
+        # (num_classes-1) is no-object and maps to src_logits[..., -1]
+        tgt_classes = torch.full(
+            src_logits.shape, (num_classes-1),
+            dtype=torch.int64, device=src_logits.device)
+        
+        # if there are matching indices, update target label on canvas
+        if matching_indices:
+            src_batch_idx = torch.cat([torch.full_like(predi, i) for i, (predi, _) in enumerate(matching_indices)])
+            src_pred_idx = torch.cat([predi for (predi, _) in matching_indices])
+            tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
+            tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
+        
+        tgt_class_probs = torch.arange(0, num_classes) * tgt_classes
+        src_probs = torch.sigmoid(src_logits)
+        focal_loss = sigmoid_focal_loss(src_probs, tgt_class_probs)
+        
+        empty_weight = torch.ones(num_classes, device=pred_logits.device)
+        empty_weight[-1] = self.eos_coef
+        focal_loss = focal_loss * empty_weight
+        return focal_loss.sum() / pred_logits.shape[0]
+        
+    
+    def _calc_label_loss(self, pred_logits, gt_labels, matching_indices=None):
+        if self.use_focal:
+            return self._calc_ce_label_loss(pred_logits, gt_labels, matching_indices)
+        else:
+            return self._calc_ce_label_loss(pred_logits, gt_labels, matching_indices)
+        
     def forward(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
         
         assert "boxes" in targets

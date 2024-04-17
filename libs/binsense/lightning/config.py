@@ -12,7 +12,8 @@ class Config:
     results_csv_filepath: str = os.path.join(cfg.BIN_DATA_DIR, 'test_results.csv')
     
     tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'tb')
-    learning_rate: float = 1e-7
+    learning_rate: float = 1e-5
+    lr_decay_rate: float = 0.95
     epochs: int = 100
     min_epochs: int = 10
     max_epochs: int = 500
@@ -23,6 +24,11 @@ class Config:
     giou_loss_coef: float = 1.0
     label_loss_coef: float = 1.5
     eos_coef: float = 1.0
+    
+    use_focal_loss: bool = False
+    focal_loss_alpha: float = 0.25
+    focal_loss_gamma: float = 2.0
+    
     iou_threshold = 0.98
     nms_threshold = 1
     score_threshold = 0.998

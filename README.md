@@ -140,13 +140,22 @@ python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy 'auto' 
 python -m binsense.cli.run_embeds_validator --validate
 ```
 
+### aws sync logs & checkpoints
+prerequisite: create binsense bucker and add folder _logs
+```
+aws configure
+crontab -e
+# add below line to crontab
+# */5 * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1
+```
+
 ### Train the owlv2 model
 prerequisite: dataprep scripts are executed
 ```
 python -m binsense.cli.owlv2.train --build_dataset
 python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=1
 
-nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v1 --batch_size=4 --epochs=50 --num_workers=3 > ./_logs/run_owlv2_train_v1.log 2>&1 </dev/null &
+nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v2 --batch_size=4 --epochs=200 --num_workers=3 > ./_logs/run_owlv2_train_v2.log 2>&1 </dev/null &
 ```
 
 ### Test the owlv2 model
@@ -157,14 +166,7 @@ python -m binsense.cli.owlv2.train --test --profiler simple --baseline_model   -
 nohup python -m binsense.cli.owlv2.train --test --profiler simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
 ```
 
-### aws sync logs & checkpoints
-prerequisite: create binsense bucker and add folder _logs
-```
-aws configure
-crontab -e
-# add below line to crontab
-# */5 * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1
-```
+
 
 ### Tensorboard
 ```

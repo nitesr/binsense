@@ -9,11 +9,17 @@ from .losses import DETRMultiBoxLoss
 from .. import torch_utils as tutls
 
 from collections import OrderedDict
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassConfusionMatrix
 from torch import Tensor
+from torch.optim.lr_scheduler import ExponentialLR
 from torchvision.ops import box_iou
+from lightning.pytorch.loggers import TensorBoardLogger
 from typing import Any, List, Dict, Tuple, Mapping
+from matplotlib import pyplot as plt
+
 import lightning as L
+import pandas as pd
+import seaborn as sns
 
 import torch, logging, os
 
@@ -65,12 +71,24 @@ class LitInImageQuerier(L.LightningModule):
                 self.cfg.label_loss_coef, self.cfg.eos_coef)
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
+        self.lr_decay_rate = self.cfg.lr_decay_rate
         self.results_csvpath = get_default_on_none(results_csvpath, self.cfg.results_csv_filepath)
         
         # Lightning expects the metrics to be defined as module variables
         self.train_exists_acc = QueryAccuracy(criteria="exists")
         self.val_exists_acc = QueryAccuracy(criteria="exists")
         self.test_exists_acc = QueryAccuracy(criteria="exists")
+        
+        #conf matrix by count (0, 1, 2, 3, 4, >4)
+        self.train_conf_matrix = MulticlassConfusionMatrix(num_classes=6)
+        self.val_conf_matrix = MulticlassConfusionMatrix(num_classes=6)
+        self.test_conf_matrix = MulticlassConfusionMatrix(num_classes=6)
+        
+        self.conf_matrix = {
+            'train': self.train_conf_matrix,
+            'val': self.val_conf_matrix,
+            'test': self.test_conf_matrix
+        }
         
         self.exists_acc = {
             'train': self.train_exists_acc,
@@ -100,7 +118,8 @@ class LitInImageQuerier(L.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        return optimizer
+        scheduler = ExponentialLR(optimizer=optimizer, gamma=self.lr_decay_rate)
+        return [optimizer], [scheduler]
     
     @torch.no_grad()
     def select_preds(self, outputs: Dict[str, Tensor]) -> Dict[str, List]:
@@ -176,23 +195,29 @@ class LitInImageQuerier(L.LightningModule):
         pred = torch.stack(pred_counts, dim=0)
         tgt = torch.stack(target_counts, dim=0)
         
-        accs = OrderedDict()
+        metrics = OrderedDict()
         # accuracy by meeting the target (pred > count)
         if step in self.meets_acc:
             self.meets_acc[step](pred, tgt)
-            accs[f'{step}_meets_acc'] = self.meets_acc[step]
+            metrics[f'{step}_meets_acc'] = self.meets_acc[step]
             
         # accuracy by count
         if step in self.matches_acc:
             self.matches_acc[step](pred, tgt)
-            accs[f'{step}_matches_acc'] = self.matches_acc[step]
+            metrics[f'{step}_matches_acc'] = self.matches_acc[step]
         
         # accuracy by presence
         if step in self.exists_acc:
             self.exists_acc[step](pred, tgt)
-            accs[f'{step}_exists_acc'] = self.exists_acc[step]
+            metrics[f'{step}_exists_acc'] = self.exists_acc[step]
         
-        return accs
+        pred_classes = pred.clone()
+        tgt_classes = tgt.clone()
+        pred_classes[pred_classes > 4] = 5
+        tgt_classes[tgt_classes > 4] = 5
+        self.conf_matrix[step](pred, tgt)
+        
+        return metrics
     
     def _log_losses_metrics(self, losses: Dict, metrics: Dict, step: str, **kwargs):
         for i, (name, metric) in enumerate(metrics.items()):
@@ -200,6 +225,18 @@ class LitInImageQuerier(L.LightningModule):
         
         for i, (name, loss) in enumerate(losses.items()):
             self.log(name=f'{step}_{name}', value=loss, prog_bar=(i == 0), **kwargs)
+    
+    def _log_conf_matrix(self, step: str):
+        if not isinstance(self.logger, TensorBoardLogger):
+            return
+        
+        tblogger = self.logger.experiment
+        confusion_matrix_computed = self.conf_matrix[step].compute().detach().cpu().numpy().astype(int)
+        df_cm = pd.DataFrame(confusion_matrix_computed)
+        plt.figure(figsize = (10,7))
+        fig_ = sns.heatmap(df_cm, annot=True, cmap='Spectral').get_figure()
+        plt.close(fig_)
+        tblogger.experiment.add_figure(f"{step}_confusion_matrix", fig_, self.current_epoch)
     
     def _common_step(self, batch) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         inputs = batch[0]
@@ -217,7 +254,7 @@ class LitInImageQuerier(L.LightningModule):
         batch_losses = outputs['losses']
         preds = self.select_preds(batch_outputs)
         accs = self._compute_metrics(preds=preds, targets=batch[1], step='train', input_idx=batch[0]["idx"])
-        self._log_losses_metrics(batch_losses, accs, 'train', on_step=True, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
+        self._log_losses_metrics(batch_losses, accs, 'train', on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
     
     def validation_step(self, batch, batch_idx):
         losses, outputs = self._common_step(batch)
@@ -229,6 +266,9 @@ class LitInImageQuerier(L.LightningModule):
         preds = self.select_preds(batch_outputs)
         accs = self._compute_metrics(preds, batch[1], 'val', batch[0]["idx"])
         self._log_losses_metrics(batch_losses, accs, 'val', on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
+    
+    def on_validation_epoch_end(self) -> None:
+        self._log_conf_matrix('val')
     
     def _initialize_pred_results_file(self) -> None:
         if self.trainer.is_global_zero:
@@ -260,12 +300,15 @@ class LitInImageQuerier(L.LightningModule):
     def on_test_start(self) -> None:
         self._initialize_pred_results_file()
     
+    def on_train_epoch_end(self) -> None:
+        self._log_conf_matrix('test')
+    
     def on_test_batch_end(self, outputs: Tensor | Mapping[str, Any] | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
         batch_outputs = outputs['outputs']
         preds = self.select_preds(batch_outputs)
         accs = self._compute_metrics(preds, batch[1], 'test', batch[0]["idx"])
         for name, metric in accs.items():
-            self.log(name, metric, on_step=True, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
+            self.log(name, metric, on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
         self._log_pred_results(outputs, self.results_csvpath)
     
     def test_step(self, batch, batch_idx):
