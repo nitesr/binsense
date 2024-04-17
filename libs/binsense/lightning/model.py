@@ -66,7 +66,10 @@ class LitInImageQuerier(L.LightningModule):
         
         self.loss = DETRMultiBoxLoss(
                 self.cfg.reg_loss_coef, self.cfg.giou_loss_coef, 
-                self.cfg.label_loss_coef, self.cfg.eos_coef)
+                self.cfg.label_loss_coef, self.cfg.eos_coef, 
+                use_focal_loss = self.cfg.use_focal_loss,
+                focal_loss_alpha = self.cfg.focal_loss_alpha,
+                focal_loss_gamma = self.cfg.focal_loss_gamma)
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
         self.lr_decay_rate = self.cfg.lr_decay_rate

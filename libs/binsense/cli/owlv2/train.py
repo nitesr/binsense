@@ -56,8 +56,9 @@ def train(
     num_workers: int = 0, 
     ckpt_fname: str = None,
     **kwargs):
-    cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, learning_rate=learning_rate, **kwargs)
     
+    print('kwargs: ', kwargs)
+    cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, learning_rate=learning_rate, **kwargs)
     print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
@@ -143,8 +144,8 @@ if __name__ == '__main__':
         default=cfg.eos_coef)
     
     parser.add_argument(
-        "--use_focal_loss", help="use focal loss instead", type=bool,
-        default=cfg.use_focal_loss)
+        "--use_focal_loss", help="use focal loss instead",
+        action="store_true")
     
     parser.add_argument(
         "--num_workers", help="Number of dataloader workers", type=int,
@@ -181,7 +182,7 @@ if __name__ == '__main__':
         "--experiment_version", help="experiment version", type=str)
     
     parser.add_argument(
-        "--profiler", help="profiline", type=str,
+        "--profiler", help="profiling", type=str,
         default=None)
     
     parser.add_argument(
