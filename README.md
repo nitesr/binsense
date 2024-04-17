@@ -125,6 +125,7 @@ source ~/.zshrc
 ./scripts/setup-env.sh
 conda init
 conda activate binsense_condaenv
+pip install -r requirements.txt
 pip install -e libs
 mkdir _data _logs
 cp -vR data/* _data

@@ -121,7 +121,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         
         # (num_classes-1) is no-object and maps to src_logits[..., -1]
         tgt_classes = torch.full(
-            src_logits.shape, (num_classes-1),
+            src_logits.shape[:2], (num_classes-1),
             dtype=torch.int64, device=src_logits.device)
         
         # if there are matching indices, update target label on canvas
