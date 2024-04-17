@@ -232,7 +232,7 @@ class LitInImageQuerier(L.LightningModule):
         fig, ax = plt.subplots(1, 1, figsize = (10,7))
         fig, _ = self.conf_matrix[step].plot(ax=ax)
         plt.close(fig)
-        tblogger.experiment.add_figure(f"{step}_confusion_matrix", fig, self.current_epoch)
+        tblogger.add_figure(f"{step}_confusion_matrix", fig, self.current_epoch)
     
     def _common_step(self, batch) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         inputs = batch[0]
