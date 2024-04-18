@@ -156,7 +156,7 @@ prerequisite: dataprep scripts are executed
 python -m binsense.cli.owlv2.train --build_dataset
 python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=1
 
-nohup python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v2 --batch_size=4 --epochs=200 --num_workers=3 > ./_logs/run_owlv2_train_v2.log 2>&1 </dev/null &
+nohup python -m binsense.cli.owlv2.train --train --profiler=simple --baseline_model   --experiment_version=v4 --batch_size=4 --min_epochs=100 --num_workers=3 --use_focal_loss --eos_coef=0.0 > ./_logs/run_owlv2_train_v4.log 2>&1 </dev/null &
 ```
 
 ### Test the owlv2 model
@@ -164,14 +164,14 @@ prerequisite: dataprep scripts are executed, move chkpt file to ~/_data/bin/chkp
 ```
 python -m binsense.cli.owlv2.train --test --profiler simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=2
 
-nohup python -m binsense.cli.owlv2.train --test --profiler simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
+nohup python -m binsense.cli.owlv2.train --test --profiler=simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
 ```
 
 
 
 ### Tensorboard
 ```
-tensorboard --logdir ~/binsense/_logs/tb --port 6006 --bind_all
+nohup tensorboard --logdir ~/binsense/_logs/tb --port 6006 --bind_all > ./_logs/tb_cli.log 2>&1 </dev/null &
 ```
 
 
