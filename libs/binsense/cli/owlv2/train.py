@@ -9,8 +9,10 @@ from ...lightning.dataset import InImageQueryDatasetBuilder, LitInImageQuerierDM
 from ...lightning.owlv2_model import OwlV2InImageQuerier
 from ...lightning.model import LitInImageQuerier
 from ...embed_datastore import SafeTensorEmbeddingDatastore
-from lightning.pytorch.loggers import TensorBoardLogger
 from ...utils import get_default_on_none, default_on_none
+
+from lightning.pytorch.loggers import TensorBoardLogger
+from typing import Dict, Tuple
 
 import lightning as L
 import logging, argparse, os, sys
@@ -29,15 +31,20 @@ def _get_transform_fn(embed_ds):
         return inputs
     return transform
 
-def build_dataset():
+def build_dataset(pos_neg_ratio: float = None):
     tcfg = TrainConfig()
     dcfg = DataPrepConfig()
+    dcfg.inimage_queries_pos_neg_ratio = get_default_on_none(pos_neg_ratio, dcfg.inimage_queries_pos_neg_ratio)
     dcfg.inimage_queries_csv = tcfg.data_csv_filepath
     embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
     csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg).build()
     print(f"dataset built @ {csv_path}")
 
-def _sync_config(batch_size: int = None, num_workers: int = 0, learning_rate: float= None, **kwargs):
+def _sync_config(
+    batch_size: int = None, 
+    num_workers: int = 0, 
+    learning_rate: float= None, 
+    **kwargs) -> Tuple[TrainConfig, Dict]:
     cfg = TrainConfig()
     cfg.batch_size = get_default_on_none(batch_size, cfg.batch_size)
     cfg.num_workers = get_default_on_none(num_workers, cfg.num_workers)
@@ -69,7 +76,7 @@ def train(
         batch_size=batch_size, 
         num_workers=num_workers, transform=_get_transform_fn(embed_ds))
     
-    model = _get_baseline_model() if baseline_model else None
+    model = _get_baseline_model()
     lmodel = LitInImageQuerier(model, cfg=cfg)
     
     trainer = L.Trainer(
@@ -97,7 +104,7 @@ def test(
         batch_size=batch_size, 
         num_workers=num_workers, transform=_get_transform_fn(embed_ds))
     
-    model = _get_baseline_model() if baseline_model else None
+    model = _get_baseline_model()
     lmodel = LitInImageQuerier(
         model, cfg=cfg,
         results_csvpath=os.path.join(cfg.data_dirpath, f'testresults_{experiment_version}.csv')
@@ -189,6 +196,12 @@ if __name__ == '__main__':
         "--build_dataset", help="build only dataset", action="store_true")
     
     parser.add_argument(
+        "--pos_neg_dataset_ratio", help="pos:neg data ratio",
+        default=1,
+        type=float
+    )
+    
+    parser.add_argument(
         "--train", help="train the model", action="store_true")
     
     parser.add_argument(
@@ -196,7 +209,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     if args.build_dataset:
-        build_dataset()
+        build_dataset(args.pos_neg_dataset_ratio)
     
     if args.train:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)

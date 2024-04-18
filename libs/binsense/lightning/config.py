@@ -15,8 +15,8 @@ class Config:
     learning_rate: float = 1e-5
     lr_decay_rate: float = 0.95
     min_epochs: int = 10
-    max_epochs: int = 500
-    batch_size: int = 8
+    max_epochs: int = 100
+    batch_size: int = 4
     num_workers: int = 0
     reg_loss_coef: float = 0.5
     giou_loss_coef: float = 1.0

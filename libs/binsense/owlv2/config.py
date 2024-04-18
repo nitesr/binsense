@@ -185,6 +185,7 @@ class Owlv2Config(LocalPretainedConfig):
         # TODO: analyze it and remove it
         # self.text_config = Owlv2TextConfig(**text_config)
         self.vision_config = Owlv2VisionConfig(**vision_config)
+        self.use_no_object_mask = False
 
         self.projection_dim = projection_dim
         self.logit_scale_init_value = logit_scale_init_value

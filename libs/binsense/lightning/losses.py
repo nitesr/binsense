@@ -22,7 +22,8 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         eos_coef: float = 0.1,
         focal_loss_alpha: float = 0.25,
         focal_loss_gamma: float = 2.0,
-        use_focal_loss: bool = False):
+        use_focal_loss: bool = False,
+        use_no_object_class: bool = True):
         super(DETRMultiBoxLoss, self).__init__()
         """
         creates the object detection loss used in DETR 
@@ -39,6 +40,8 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         self.use_focal = use_focal_loss
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
+        
+        self.use_no_object_class = use_no_object_class
 
          # TODO: do we need same weights
         self.matcher = HungarianMatcher(
@@ -50,7 +53,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         # lets not pass no-object logits to matcher 
         #   as there is nothing to match in ground truth
         matching_indices = self.matcher(
-                outputs={'pred_boxes': pred_boxes, 'pred_logits': pred_logits[...,:-1]},
+                outputs={'pred_boxes': pred_boxes, 'pred_logits': pred_logits},
                 targets=[ \
                     {
                         'labels': gt_labels[i],
@@ -133,18 +136,54 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         
         tgt_class_probs = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device) * tgt_classes.unsqueeze(-1)
         src_probs = torch.sigmoid(src_logits)
-        focal_loss = sigmoid_focal_loss(src_probs, tgt_class_probs)
+        focal_loss = sigmoid_focal_loss(src_probs, tgt_class_probs, reduction='none')
         
         empty_weight = torch.ones(num_classes, device=pred_logits.device)
-        empty_weight[-1] = self.eos_coef
+        if self.use_no_object_class:
+            empty_weight[-1] = self.eos_coef
         focal_loss = focal_loss * empty_weight
         return focal_loss.sum() / pred_logits.shape[0]
+    
+    def _calc_bce_label_loss(self, pred_logits, gt_labels, matching_indices=None):
+        # for label loss we will do it on entire prediction logits
+        #   build the canvas of size prediction logits with label as no-object
+        #   and update it with ground truth labels for the matching ones.
+        # note: the indices can be out of order in col i.e. on ground truths)
         
+        num_classes = pred_logits.shape[-1]
+        src_logits = pred_logits
+        
+        # (num_classes-1) is no-object and maps to src_logits[..., -1]
+        tgt_classes = torch.full(
+            src_logits.shape[:2], (num_classes-1),
+            dtype=torch.int64, device=src_logits.device)
+        
+        # if there are matching indices, update target label on canvas
+        if matching_indices:
+            src_batch_idx = torch.cat([torch.full_like(predi, i) for i, (predi, _) in enumerate(matching_indices)])
+            src_pred_idx = torch.cat([predi for (predi, _) in matching_indices])
+            tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
+            tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
+        
+        tgt_class_probs = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device) * tgt_classes.unsqueeze(-1)
+        src_probs = torch.sigmoid(src_logits)
+        bce_loss = F.binary_cross_entropy(src_probs, tgt_class_probs, reduction='none')
+        
+        empty_weight = torch.ones(num_classes, device=pred_logits.device)
+        if self.use_no_object_class:
+            empty_weight[-1] = self.eos_coef
+        bce_loss = bce_loss * empty_weight
+        return bce_loss.sum() / pred_logits.shape[0]
+    
     
     def _calc_label_loss(self, pred_logits, gt_labels, matching_indices=None):
         if self.use_focal:
             return self._calc_focal_label_loss(pred_logits, gt_labels, matching_indices)
+        elif not self.use_no_object_class:
+            return self._calc_bce_label_loss(pred_logits, gt_labels, matching_indices)
         else:
+            # can't cross entropy does softmax across the classes
+            #  no-object needs to be considered for that.
             return self._calc_ce_label_loss(pred_logits, gt_labels, matching_indices)
         
     def forward(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -155,7 +194,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         assert "pred_logits" in outputs
 
         pred_boxes = outputs["pred_boxes"] # B x NUM_PATCHES x 4
-        pred_logits = outputs["pred_logits"] # B x NUM_PATCHES x NUM_QUERIES+1
+        pred_logits = outputs["pred_logits"] # B x NUM_PATCHES x NUM_QUERIES
         gt_boxes = targets["boxes"] # B x [ M x 4 ]
         
         assert pred_logits.shape[:2] == pred_boxes.shape[:2]

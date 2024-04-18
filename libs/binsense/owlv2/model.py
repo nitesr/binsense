@@ -205,6 +205,7 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         self.class_head = Owlv2ClassPredictionHead(config)
         self.box_head = Owlv2BoxPredictionHead(config)
         self.objectness_head = Owlv2BoxPredictionHead(config, out_dim=1)
+        self.use_no_object_mask = config.use_no_object_mask
 
         self.layer_norm = nn.LayerNorm(config.vision_config.hidden_size, eps=config.vision_config.layer_norm_eps)
         self.sigmoid = nn.Sigmoid()
@@ -496,10 +497,13 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         
         # Predict object classes [batch_size, num_patches, num_queries+1]
         # +1 to mask for no-object
-        query_embeddings = F.pad(query_embeddings, (0, 0, 0, 1), 'constant', 0)
-        query_mask = torch.full(query_embeddings.shape[:2], 1, dtype=query_embeddings.dtype, device=query_embeddings.device)
-        query_mask[:, -1] = 0
-        (pred_logits, class_embeds) = self.class_predictor(image_feats=image_feats, query_embeds=query_embeddings, query_mask=query_mask)
+        if self.use_no_object_mask:
+            query_embeddings = F.pad(query_embeddings, (0, 0, 0, 1), 'constant', 0)
+            query_mask = torch.full(query_embeddings.shape[:2], 1, dtype=query_embeddings.dtype, device=query_embeddings.device)
+            query_mask[:, -1] = 0
+        else:
+            query_mask = None
+        pred_logits, _ = self.class_predictor(image_feats=image_feats, query_embeds=query_embeddings, query_mask=query_mask)
         
         # Predict objectness
         # objectness_logits = self.objectness_predictor(image_feats)

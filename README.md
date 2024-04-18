@@ -109,7 +109,7 @@ Make sure below command lists the EC2 instance and public dns before you do ssh
 ./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE
 chmod 400 ~/.ssh/"$AWS_PROFILE"_KeyPair.pem
 cp -f ~/.ssh/"$AWS_PROFILE"_KeyPair.pem /aws/mount
-./scripts/setup_dl_ec2_instance.sh > /aws/mount/ec2_details.txt
+./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE > /aws/mount/"$AWS_PROFILE"_ec2_details.txt
 ```
 ```
 PUBLIC_DNS_NAME=$(./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE | grep "PUBLIC_DNS_NAME" | cut -d "=" -f 2 | tr -d ' ')
@@ -153,7 +153,7 @@ crontab -e
 ### Train the owlv2 model
 prerequisite: dataprep scripts are executed
 ```
-python -m binsense.cli.owlv2.train --build_dataset
+python -m binsense.cli.owlv2.train --build_dataset --pos_neg_dataset_ratio=9
 python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=1
 
 nohup python -m binsense.cli.owlv2.train --train --profiler=simple --baseline_model   --experiment_version=v4 --batch_size=4 --min_epochs=100 --num_workers=3 --use_focal_loss --eos_coef=0.0 > ./_logs/run_owlv2_train_v4.log 2>&1 </dev/null &
@@ -162,11 +162,10 @@ nohup python -m binsense.cli.owlv2.train --train --profiler=simple --baseline_mo
 ### Test the owlv2 model
 prerequisite: dataprep scripts are executed, move chkpt file to ~/_data/bin/chkpts
 ```
-python -m binsense.cli.owlv2.train --test --profiler simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=2
+python -m binsense.cli.owlv2.train --test --profiler=simple --experiment_version=testv4_1 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=2
 
 nohup python -m binsense.cli.owlv2.train --test --profiler=simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
 ```
-
 
 
 ### Tensorboard

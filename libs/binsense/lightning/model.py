@@ -4,7 +4,7 @@ from .spec import MultiBoxLoss
 from ..embed_datastore import EmbeddingDatastore, SafeTensorEmbeddingDatastore
 from .config import Config
 from ..utils import get_default_on_none, backup_file
-from ..img_utils import corner_to_centers
+from ..img_utils import center_to_corners
 from .losses import DETRMultiBoxLoss
 from .. import torch_utils as tutls
 
@@ -12,7 +12,7 @@ from collections import OrderedDict
 from torchmetrics.classification import MulticlassConfusionMatrix
 from torch import Tensor
 from torch.optim.lr_scheduler import ExponentialLR
-from torchvision.ops import box_iou
+from torchvision.ops import nms
 from lightning.pytorch.loggers import TensorBoardLogger
 from typing import Any, List, Dict, Tuple, Mapping
 from matplotlib import pyplot as plt
@@ -131,49 +131,45 @@ class LitInImageQuerier(L.LightningModule):
         pred_boxes = outputs['pred_boxes'].detach()
         
         # expecting only one query class
-        probs = torch.max(pred_logits[...,:-1], dim=-1)
+        probs = torch.max(pred_logits[...,0:], dim=-1)
         scores = torch.sigmoid(probs.values)
-        bboxes_xy = corner_to_centers(pred_boxes)
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            logger.debug(f'''
+                scores: mean={scores.mean(dim=-1)}, 
+                max={scores.max(dim=-1).values}, 
+                min={scores.min(dim=-1).values}, 
+                75p={scores.quantile(0.75, dim=-1)}
+                95p={scores.quantile(0.95, dim=-1)}
+            ''')
         
         # Apply non-maximum suppression (NMS)
         if self.cfg.nms_threshold < 1.0:
+            bboxes_xy = center_to_corners(pred_boxes) # B x NUM_PATCHES x 4
             for idx in range(bboxes_xy.shape[0]):
-                for i in torch.argsort(-scores[idx]):
-                    if not scores[idx][i]:
-                        continue
-
-                    ious = box_iou(bboxes_xy[idx][i, :].unsqueeze(0), bboxes_xy[idx])[0][0]
-                    ious[i] = -1.0  # Mask self-IoU.
-                    scores[idx][ious > self.cfg.nms_threshold] = 0.0
+                bbox_indices = nms(bboxes_xy[idx], scores[idx], self.cfg.nms_threshold)
+                scores[idx][bbox_indices] = 0.0
+        
+        # Apply threshold
+        scores[scores < self.cfg.score_threshold] = 0.0
         
         selected_pred_boxes = []
         selected_pred_scores = []
-        alphas = torch.zeros_like(scores, device=pred_logits.device)
         for idx in range(pred_boxes.shape[0]):
-            # Select scores for boxes matching the current query:
-            query_scores = scores[idx]
-            if not query_scores.nonzero().numel():
-                selected_pred_boxes.append(tutls.empty_float_tensor().to(pred_boxes.device))
-                selected_pred_scores.append(tutls.empty_float_tensor().to(pred_boxes.device))
-                continue
-
-            # Apply threshold on scores before scaling
-            query_scores[query_scores < self.cfg.score_threshold] = 0.0
-
-            # Scale box alpha such that the best box for each query has alpha 1.0 
-            #   and the worst box has alpha 0.1 range(10%, 100%) of max_score.
-            max_score = torch.max(query_scores) + 1e-6
-            query_alphas = (query_scores - (max_score * 0.1)) / (max_score * 0.9)
-            query_alphas = torch.clip(query_alphas, 0.0, 1.0)
-            alphas[idx] = query_alphas
-
-            mask = alphas[idx] > 0
-            box_scores = alphas[idx][mask]
-            boxes = pred_boxes[idx][mask]
-            selected_pred_boxes.append(boxes)
-            selected_pred_scores.append(box_scores)
-        
+            mask = scores[idx] > 0
+            selected_pred_boxes.append(pred_boxes[idx][mask])
+            selected_pred_scores.append(scores[idx][mask])
         return {"pred_boxes": selected_pred_boxes, "pred_scores": selected_pred_scores}
+    
+    @torch.no_grad()
+    def _log_scores(self, outputs, targets, step: str):
+        if not isinstance(self.logger, TensorBoardLogger):
+            return
+        
+        if self.global_step % 10 == 0:
+            tblogger = self.logger.experiment
+            scores = torch.sigmoid(outputs['pred_logits'][...,0:].detach())
+            tblogger.add_histogram(f'{step}_scores', scores, global_step=self.global_step)
+            tblogger.add_histogram(f'{step}_tgt_counts', torch.stack([x for x in targets["count"]]), global_step=self.global_step)
     
     def _compute_metrics(self, preds, targets, step: str, input_idx):
         assert preds is not None
@@ -254,6 +250,7 @@ class LitInImageQuerier(L.LightningModule):
         preds = self.select_preds(batch_outputs)
         accs = self._compute_metrics(preds=preds, targets=batch[1], step='train', input_idx=batch[0]["idx"])
         self._log_losses_metrics(batch_losses, accs, 'train', on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
+        self._log_scores(batch_outputs, batch[1], step='train')
     
     def validation_step(self, batch, batch_idx):
         losses, outputs = self._common_step(batch)
@@ -300,7 +297,7 @@ class LitInImageQuerier(L.LightningModule):
     def on_test_start(self) -> None:
         self._initialize_pred_results_file()
     
-    def on_train_epoch_end(self) -> None:
+    def on_test_epoch_end(self) -> None:
         self._log_conf_matrix('test')
         self.conf_matrix['test'].reset()
     
@@ -311,6 +308,7 @@ class LitInImageQuerier(L.LightningModule):
         for name, metric in accs.items():
             self.log(name, metric, on_step=False, on_epoch=True, sync_dist=True, batch_size=len(batch[0]))
         self._log_pred_results(outputs, self.results_csvpath)
+        self._log_scores(batch_outputs, batch[1], 'test')
     
     def test_step(self, batch, batch_idx):
         outputs = self.model(batch[0])
