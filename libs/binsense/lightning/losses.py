@@ -131,7 +131,7 @@ class DETRMultiBoxLoss(MultiBoxLoss):
             tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
             tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
         
-        tgt_class_probs = torch.arange(0, num_classes).to(src_logits.device) * tgt_classes.unsqueeze(-1)
+        tgt_class_probs = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device) * tgt_classes.unsqueeze(-1)
         src_probs = torch.sigmoid(src_logits)
         focal_loss = sigmoid_focal_loss(src_probs, tgt_class_probs)
         
