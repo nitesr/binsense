@@ -10,7 +10,7 @@ class Config:
     embed_store_dirpath: str = os.path.join(cfg.BIN_DATA_DIR, 'embed_store')
     chkpt_dirpath: str = os.path.join(cfg.BIN_DATA_DIR, 'chkpts')
     results_csv_filepath: str = os.path.join(cfg.BIN_DATA_DIR, 'test_results.csv')
-    results_topk_bboxes: int = 10
+    results_topk_bboxes: int = 15
     tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'tb')
     experiment_version: str = None
     learning_rate: float = 1e-5
