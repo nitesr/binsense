@@ -72,7 +72,7 @@ class LitInImageQuerier(L.LightningModule):
             use_focal_loss = self.cfg.use_focal_loss,
             focal_loss_alpha = self.cfg.focal_loss_alpha,
             focal_loss_gamma = self.cfg.focal_loss_gamma,
-            use_no_object_class=self.cfg.use_no_object_class,
+            has_no_object_class=self.cfg.use_no_object_class,
             match_cost_bbox=self.cfg.match_cost_bbox,
             match_cost_giou=self.cfg.match_cost_giou,
             match_cost_label=self.cfg.match_cost_label

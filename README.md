@@ -170,12 +170,13 @@ nohup python -m binsense.cli.owlv2.train --train --profiler=simple  \
 prerequisite: dataprep scripts are executed, move chkpt file to ~/_data/bin/chkpts
 ```
 python -m binsense.cli.owlv2.train --test --profiler=simple \
---experiment_version=testv4_1 --batch_size=4 --num_workers=3 \
+--experiment_version=testv0 --batch_size=4 --num_workers=3 \
 --devices 1 --fast_dev_run=2
 
 nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
---experiment_version=test_v6 --batch_size=4 --num_workers=3 \
-> ./_logs/run_owlv2_test.log 2>&1 </dev/null &
+--experiment_version=testv6 --batch_size=4 --num_workers=3 \
+--ckpt_fname=v6_epoch33_best.ckpt \
+> ./_logs/run_owlv2_test_v6.log 2>&1 </dev/null &
 
 ```
 
