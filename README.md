@@ -176,12 +176,18 @@ python -m binsense.cli.owlv2.train --test --profiler=simple \
 nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
 --experiment_version=test_v6 --batch_size=4 --num_workers=3 \
 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
+
 ```
 
 
 ### Tensorboard
 ```
 nohup tensorboard --logdir ~/binsense/_logs/tb --port 6006 --bind_all > ./_logs/tb_cli.log 2>&1 </dev/null &
+```
+
+### Download checkpoint
+```
+aws s3api get-object --bucket binsense --key _logs/tb/lightning_logs/v6/checkpoints/epoch=33-step=4862.ckpt ~/binsense/_data/bin/chkpts/v6_epoch33_best.ckpt --output json
 ```
 
 
