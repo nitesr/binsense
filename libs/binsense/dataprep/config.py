@@ -24,7 +24,7 @@ class DataPrepConfig:
     
     filtered_dataset_path = os.path.join(cfg.BIN_DATA_DIR, 'filtered_dataset')
     inimage_queries_csv = os.path.join(cfg.BIN_DATA_DIR, 'inimage_queries.csv')
-    inimage_queries_pos_neg_ratio = 1
+    inimage_queries_pos_neg_ratio = 9
     
     roboql_dataset_url='https://app.roboflow.com/query/roboql/dataset'
     robo_workspace = "nitesh-c-eszzc"

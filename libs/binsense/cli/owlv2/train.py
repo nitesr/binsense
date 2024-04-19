@@ -57,7 +57,6 @@ def _sync_config(
     return cfg, kwargs
 
 def train(
-    baseline_model: bool = True, 
     batch_size: int = None, 
     learning_rate: float= None, 
     num_workers: int = 0, 
@@ -87,7 +86,6 @@ def train(
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
 def test(
-    baseline_model: bool = True, 
     batch_size: int = None, 
     num_workers: int = 0, 
     ckpt_fname: str = None,
@@ -114,9 +112,10 @@ def test(
     trainer.test(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s : %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s : %(message)s')
     parser = argparse.ArgumentParser()
     cfg = TrainConfig()
+    dcfg = DataPrepConfig()
 
     parser.add_argument(
         "--learning_rate", help="learning rate", type=float,
@@ -151,16 +150,8 @@ if __name__ == '__main__':
         default=cfg.eos_coef)
     
     parser.add_argument(
-        "--use_focal_loss", help="use focal loss instead",
-        action="store_true")
-    
-    parser.add_argument(
         "--num_workers", help="Number of dataloader workers", type=int,
         default=cfg.num_workers)
-    
-    parser.add_argument(
-        "--baseline_model", help="use baseline model",
-        action="store_true")
     
     parser.add_argument(
         "--ckpt_fname", help="checkpoint of filename to resume from", type=str)
@@ -197,7 +188,7 @@ if __name__ == '__main__':
     
     parser.add_argument(
         "--pos_neg_dataset_ratio", help="pos:neg data ratio",
-        default=1,
+        default=dcfg.inimage_queries_pos_neg_ratio,
         type=float
     )
     
@@ -214,7 +205,6 @@ if __name__ == '__main__':
     if args.train:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
         train(
-            baseline_model=args.baseline_model,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
@@ -231,13 +221,11 @@ if __name__ == '__main__':
             score_threshold=args.score_threshold,
             iou_threshold=args.iou_threshold,
             nms_threshold=args.nms_threshold,
-            eos_coef=args.eos_coef,
-            use_focal_loss=args.use_focal_loss
+            eos_coef=args.eos_coef
         )
     elif args.test:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
         test(
-            baseline_model=args.baseline_model,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
