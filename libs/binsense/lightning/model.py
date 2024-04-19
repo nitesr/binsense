@@ -130,7 +130,7 @@ class LitInImageQuerier(L.LightningModule):
         return [optimizer], [scheduler]
     
     @torch.no_grad()
-    def select_preds(self, outputs: Dict[str, Tensor]) -> Dict[str, List]:
+    def select_preds(self, outputs: Dict[str, Tensor], apply_score_threshold: bool = True) -> Dict[str, List]:
         """
         filter out the crowd
         """
@@ -157,7 +157,8 @@ class LitInImageQuerier(L.LightningModule):
                 scores[idx][bbox_indices] = 0.0
         
         # Apply threshold
-        scores[scores < self.cfg.score_threshold] = 0.0
+        if apply_score_threshold:
+            scores[scores < self.cfg.score_threshold] = 0.0
         
         selected_pred_boxes = []
         selected_pred_scores = []
@@ -280,9 +281,10 @@ class LitInImageQuerier(L.LightningModule):
                 bkp_fp = backup_file(self.results_csvpath)
                 logger.info(f'backing up {self.results_csvpath} to {bkp_fp}')
             with open(self.results_csvpath, 'w') as f:
-                f.write('input_idx,pred_boxes_count,pred_boxes_coords')
+                f.write('input_idx,pred_boxes_count,pred_boxes_scores,pred_boxes_coords')
                 f.write('\n')
     
+    @torch.no_grad()
     def _log_pred_results(self, outputs: Tensor | Mapping[str, Any] | None, fpath: str) -> None:
         batch_input_idx = self.all_gather(outputs['input_idx'])
         batch_pred_boxes = self.all_gather(outputs['outputs']['pred_boxes'])
@@ -293,12 +295,18 @@ class LitInImageQuerier(L.LightningModule):
             batch_input_idx = batch_input_idx.flatten(0, 1) if len(batch_input_idx.shape) > 1 else batch_input_idx
             batch_pred_boxes = batch_pred_boxes.flatten(0, 1) if len(batch_pred_boxes.shape) > 3 else batch_pred_boxes
             batch_pred_logits = batch_pred_logits.flatten(0, 1) if len(batch_pred_logits.shape) > 3 else batch_pred_logits
-            preds = self.select_preds({"pred_boxes": batch_pred_boxes, 'pred_logits': batch_pred_logits})
+            preds = self.select_preds(
+                {"pred_boxes": batch_pred_boxes, 'pred_logits': batch_pred_logits}, 
+                apply_score_threshold=False)
             with open(fpath, 'a') as f:
                 for i, input_idx in enumerate(batch_input_idx):
-                    pred_boxes = preds['pred_boxes'][i]
-                    pred_boxes_coords = ' '.join([str(t.item()) for t in pred_boxes.flatten()])
-                    f.write(f'{input_idx},{pred_boxes.shape[0]},{pred_boxes_coords}')
+                    topk_scores = torch.topk(
+                        preds['pred_scores'][i], 
+                        k=self.cfg.results_topk_bboxes, largest=True)
+                    topk_boxes = preds['pred_boxes'][i][topk_scores[1]]
+                    pred_boxes_coords = ' '.join([str(t.item()) for t in topk_boxes.flatten()])
+                    pred_boxes_scores = ' '.join([str(t.item()) for t in topk_scores[0]])
+                    f.write(f'{input_idx},{topk_boxes.shape[0]},{pred_boxes_scores},{pred_boxes_coords}')
                     f.write('\n')
     
     def on_test_start(self) -> None:

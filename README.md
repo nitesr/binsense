@@ -156,17 +156,26 @@ crontab -e
 prerequisite: dataprep scripts are executed
 ```
 python -m binsense.cli.owlv2.train --build_dataset --pos_neg_dataset_ratio=9
-python -m binsense.cli.owlv2.train --train --profiler simple --baseline_model   --experiment_version=v0 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=1
 
-nohup python -m binsense.cli.owlv2.train --train --profiler=simple --baseline_model   --experiment_version=v6 --batch_size=4 --max_epochs=100 --num_workers=3 > ./_logs/run_owlv2_train_v6.log 2>&1 </dev/null &
+python -m binsense.cli.owlv2.train --train --profiler=simple \
+--experiment_version=v0 --batch_size=4 --num_workers=3  \
+--devices 1 --fast_dev_run=1
+
+nohup python -m binsense.cli.owlv2.train --train --profiler=simple  \
+--experiment_version=v6 --batch_size=4 --max_epochs=100 --num_workers=3 \
+> ./_logs/run_owlv2_train_v6.log 2>&1 </dev/null &
 ```
 
 ### Test the owlv2 model
 prerequisite: dataprep scripts are executed, move chkpt file to ~/_data/bin/chkpts
 ```
-python -m binsense.cli.owlv2.train --test --profiler=simple --experiment_version=testv4_1 --batch_size=4 --num_workers=3  --devices 1 --fast_dev_run=2
+python -m binsense.cli.owlv2.train --test --profiler=simple \
+--experiment_version=testv4_1 --batch_size=4 --num_workers=3 \
+--devices 1 --fast_dev_run=2
 
-nohup python -m binsense.cli.owlv2.train --test --profiler=simple --baseline_model   --experiment_version=test_baseline --batch_size=4 --num_workers=3 > ./_logs/run_owlv2_test.log 2>&1 </dev/null &
+nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
+--experiment_version=test_v6 --batch_size=4 --num_workers=3 \
+> ./_logs/run_owlv2_test.log 2>&1 </dev/null &
 ```
 
 
