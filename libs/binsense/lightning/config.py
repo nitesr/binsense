@@ -22,9 +22,13 @@ class Config:
     giou_loss_coef: float = 1.0
     label_loss_coef: float = 1.5
     eos_coef: float = 1.0
-    use_focal_loss: bool = False
+    use_focal_loss: bool = True
     focal_loss_alpha: float = 0.25
     focal_loss_gamma: float = 2.0
+    match_cost_label: float = 0.25
+    match_cost_bbox: float = 0.75
+    match_cost_giou: float = 2.0
     iou_threshold: float = 0.98
     nms_threshold: float = 1
-    score_threshold: float = 0.998
+    score_threshold: float = 0.98
+    use_no_object_class: bool = False

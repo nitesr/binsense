@@ -125,6 +125,8 @@ source ~/.zshrc
 ./scripts/setup-env.sh
 conda init
 conda activate binsense_condaenv
+# incase u get into issues
+# pip install --upgrade --force-reinstall torch==2.2.1 torchvision
 pip install -r requirements.txt
 pip install -e libs
 mkdir _data _logs

@@ -23,7 +23,10 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         focal_loss_alpha: float = 0.25,
         focal_loss_gamma: float = 2.0,
         use_focal_loss: bool = False,
-        use_no_object_class: bool = True):
+        use_no_object_class: bool = False,
+        match_cost_label: float = 1,
+        match_cost_bbox: float = 1,
+        match_cost_giou: float = 1):
         super(DETRMultiBoxLoss, self).__init__()
         """
         creates the object detection loss used in DETR 
@@ -45,9 +48,9 @@ class DETRMultiBoxLoss(MultiBoxLoss):
 
          # TODO: do we need same weights
         self.matcher = HungarianMatcher(
-            cost_class=self.label_loss_coef,
-            cost_bbox=self.reg_loss_coef,
-            cost_giou=self.giou_loss_coef)
+            cost_class=match_cost_label,
+            cost_bbox=match_cost_bbox,
+            cost_giou=match_cost_giou)
     
     def _run_matcher(self, pred_logits, pred_boxes, gt_labels, gt_boxes):
         # lets not pass no-object logits to matcher 
@@ -123,20 +126,21 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         src_logits = pred_logits
         
         # (num_classes-1) is no-object and maps to src_logits[..., -1]
-        tgt_classes = torch.full(
-            src_logits.shape[:2], (num_classes-1),
-            dtype=torch.int64, device=src_logits.device)
+        tgt_probs = torch.full(
+            src_logits.shape, 0,
+            dtype=torch.float32, device=src_logits.device)
         
         # if there are matching indices, update target label on canvas
         if matching_indices:
             src_batch_idx = torch.cat([torch.full_like(predi, i) for i, (predi, _) in enumerate(matching_indices)])
             src_pred_idx = torch.cat([predi for (predi, _) in matching_indices])
             tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
-            tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
+            classes = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device)
+            tgt_classes_temp = (tgt_classes_temp.unsqueeze(-1) == classes).float()
+            tgt_probs[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
         
-        tgt_class_probs = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device) * tgt_classes.unsqueeze(-1)
         src_probs = torch.sigmoid(src_logits)
-        focal_loss = sigmoid_focal_loss(src_probs, tgt_class_probs, reduction='none')
+        focal_loss = sigmoid_focal_loss(src_probs, tgt_probs, reduction='none')
         
         empty_weight = torch.ones(num_classes, device=pred_logits.device)
         if self.use_no_object_class:
@@ -154,20 +158,21 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         src_logits = pred_logits
         
         # (num_classes-1) is no-object and maps to src_logits[..., -1]
-        tgt_classes = torch.full(
-            src_logits.shape[:2], (num_classes-1),
-            dtype=torch.int64, device=src_logits.device)
+        tgt_probs = torch.full(
+            src_logits.shape, 0,
+            dtype=torch.float32, device=src_logits.device)
         
         # if there are matching indices, update target label on canvas
         if matching_indices:
             src_batch_idx = torch.cat([torch.full_like(predi, i) for i, (predi, _) in enumerate(matching_indices)])
             src_pred_idx = torch.cat([predi for (predi, _) in matching_indices])
             tgt_classes_temp = torch.cat([gt_l[gt_idx] for gt_l, (_, gt_idx) in zip(gt_labels, matching_indices)])
-            tgt_classes[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
+            classes = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device)
+            tgt_classes_temp = (tgt_classes_temp.unsqueeze(-1) == classes).float()
+            tgt_probs[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
         
-        tgt_class_probs = torch.arange(0, num_classes, dtype=torch.float32).to(src_logits.device) * tgt_classes.unsqueeze(-1)
         src_probs = torch.sigmoid(src_logits)
-        bce_loss = F.binary_cross_entropy(src_probs, tgt_class_probs, reduction='none')
+        bce_loss = F.binary_cross_entropy(src_probs, tgt_probs, reduction='none')
         
         empty_weight = torch.ones(num_classes, device=pred_logits.device)
         if self.use_no_object_class:

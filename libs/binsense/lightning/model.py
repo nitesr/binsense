@@ -65,11 +65,18 @@ class LitInImageQuerier(L.LightningModule):
         self.save_hyperparameters("cfg")
         
         self.loss = DETRMultiBoxLoss(
-                self.cfg.reg_loss_coef, self.cfg.giou_loss_coef, 
-                self.cfg.label_loss_coef, self.cfg.eos_coef, 
-                use_focal_loss = self.cfg.use_focal_loss,
-                focal_loss_alpha = self.cfg.focal_loss_alpha,
-                focal_loss_gamma = self.cfg.focal_loss_gamma)
+            reg_loss_coef=self.cfg.reg_loss_coef, 
+            giou_loss_coef=self.cfg.giou_loss_coef, 
+            label_loss_coef=self.cfg.label_loss_coef, 
+            eos_coef=self.cfg.eos_coef, 
+            use_focal_loss = self.cfg.use_focal_loss,
+            focal_loss_alpha = self.cfg.focal_loss_alpha,
+            focal_loss_gamma = self.cfg.focal_loss_gamma,
+            use_no_object_class=self.cfg.use_no_object_class,
+            match_cost_bbox=self.cfg.match_cost_bbox,
+            match_cost_giou=self.cfg.match_cost_giou,
+            match_cost_label=self.cfg.match_cost_label
+        )
         self.iou_threshold = self.cfg.iou_threshold
         self.lr = self.cfg.learning_rate
         self.lr_decay_rate = self.cfg.lr_decay_rate
