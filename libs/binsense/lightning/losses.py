@@ -144,13 +144,16 @@ class DETRMultiBoxLoss(MultiBoxLoss):
             tgt_classes_temp = (tgt_classes_temp.unsqueeze(-1) == classes).float()
             tgt_probs[(src_batch_idx, src_pred_idx)] = tgt_classes_temp
         
-        src_probs = torch.sigmoid(src_logits)
-        focal_loss = sigmoid_focal_loss(src_probs, tgt_probs, reduction='none')
+        focal_loss = sigmoid_focal_loss(
+            src_logits, tgt_probs, 
+            alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma, 
+            reduction='none')
         
         empty_weight = torch.ones(num_classes, device=pred_logits.device)
         if self.has_no_object_class:
             empty_weight[-1] = self.eos_coef
         focal_loss = focal_loss * empty_weight
+        
         return focal_loss.mean()
     
     def _calc_label_loss(self, pred_logits, gt_labels, matching_indices=None):

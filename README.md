@@ -98,7 +98,7 @@ This script contains logic to check, clean & provision following resources to do
 ```
 
 ### create resources on aws
-you can pass ----instance=<type of ec2 instance e.g. g4dn.xlarge or g4dn.12xlarge>
+you can pass ----instance=type of ec2 instance e.g. g4dn.xlarge or g4dn.12xlarge
 ```
 ./scripts/setup_dl_ec2_instance.sh --profile=$AWS_PROFILE --create --instance=g4dn.xlarge
 ```

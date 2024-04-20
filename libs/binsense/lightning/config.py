@@ -31,5 +31,5 @@ class Config:
     match_cost_giou: float = 1
     iou_threshold: float = 0.98
     nms_threshold: float = 1
-    score_threshold: float = 0.98
+    score_threshold: float = 0.95
     use_no_object_class: bool = False
