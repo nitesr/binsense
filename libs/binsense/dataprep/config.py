@@ -44,3 +44,15 @@ class DataPrepConfig:
         ('done', re.compile('(done|dome|donne|completed|complete|finished|finish)')),
         ('hard', re.compile('(hard|hardy|very hard|hardest)'))
     ]
+
+def bin_cfg() -> DataPrepConfig:
+    return DataPrepConfig()
+
+def coco_cfg() -> DataPrepConfig:
+    coco_cfg = DataPrepConfig()
+    coco_cfg.root_dir = cfg.COCO_DATA_DIR
+    coco_cfg.dataset_download_path = os.path.join(cfg.COCO_DATA_DIR, 'sample')
+    coco_cfg.filtered_dataset_path = os.path.join(cfg.COCO_DATA_DIR, 'filtered_dataset')
+    coco_cfg.inimage_queries_csv = os.path.join(cfg.COCO_DATA_DIR, 'inimage_queries.csv')
+    coco_cfg.embed_store_dirpath = os.path.join(cfg.COCO_DATA_DIR, 'embed_store')
+    return coco_cfg

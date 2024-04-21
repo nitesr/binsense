@@ -1,4 +1,5 @@
 from .utils import FileIterator, backup_file
+from .img_utils import convert_xy_cxy_and_unscale
 
 from pathlib import Path
 
@@ -529,8 +530,10 @@ class YoloDatasetBuilder(DatasetBuilder):
 # -- refactor below code to meet the interfaces ----------------
 
 class COCODataset(Dataset):
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict, tag: DataTag = DataTag.TRAIN) -> None:
         super(COCODataset, self).__init__()
+        self.datasets = {}
+        self.datasets[tag] = data
         self.data = data
     
     def _check_if_exists(self, value: str, lst: list, attr_name: str = 'name') -> Tuple[bool, int]:
@@ -547,7 +550,58 @@ class COCODataset(Dataset):
                 return self.data["categories"][cat_id]["name"]
         
         return None
+    
+    def get_images(self, tag: DataTag = DataTag.TRAIN) -> List[ImageData]:
+        if tag not in self.datasets:
+            return []
         
+        images_data = []
+        data = self.datasets[tag]
+        for img in data['images']:
+            d = ImageData(
+                id = img['id'],
+                name=img['file_name'],
+                path=f"{tag.value}/images/{img['file_name']}",
+                width=img['width'],
+                height=img['height'],
+                normalized=False,
+                tag=tag
+            )
+            images_data.append(d)
+        return images_data
+    
+    def get_bboxes(self, img_name: str) -> List[BoundingBox]:
+        exists, img_id = self._check_if_exists(img_name, self.data['images'], 'file_name')
+        if not exists:
+            return []
+        
+        anns = []
+        img = self.data['images'][img_id]
+        for ann in filter(lambda x: x['image_id'] == img['id'], self.data['annotations']):
+            _, cat_id = self._check_if_exists(ann["category_id"], self.data['categories'], 'id')
+            cat = self.data['categories'][cat_id]
+            b = BoundingBox(
+                label=cat['name'],
+                _label_id=cat['id'],
+                _img_id=img['id'],
+                center_x= (ann['bbox'][0] + ann['bbox'][2] * 0.5) / img['width'],
+                center_y= (ann['bbox'][1] + ann['bbox'][3] * 0.5) / img['height'],
+                width=ann['bbox'][2] / img['width'],
+                height=ann['bbox'][3] / img['height'],
+                normalized=True
+            )
+            anns.append(b)
+        return anns
+    
+    def get_labels(self, img_name: str) -> List[LabelData]:
+        bboxes = self.get_bboxes(img_name)
+        filtered_labels  = []
+        for bbox in bboxes:
+            _, cat_id = self._check_if_exists(bbox.label, self.data['categories'], 'name')
+            cat = self.data['categories'][cat_id]
+            filtered_labels.append(LabelData(id=cat['id'], name=cat['name']))
+        return filtered_labels
+    
     def get_bbox(self, img_name: str) -> List[Dict]:
         exists, img_id = self._check_if_exists(img_name, self.data['images'], 'file_name')
         if not exists:
@@ -567,7 +621,7 @@ class COCODataset(Dataset):
             if c['name'] not in super_cats:
                 cats.append(c['name'])
         return cats
-
+    
     def to_file(self, file_path: str) -> None:
         f = open(file_path, 'w')
         f.write(json.dumps(self.data, indent=2))

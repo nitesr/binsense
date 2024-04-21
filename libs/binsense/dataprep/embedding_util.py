@@ -85,23 +85,3 @@ class BBoxDatasetEmbedder:
             bbox_labels=best_bbox_labels,
             embed_ds=embed_store)
         trainer.predict(model=lmodel, dataloaders=torch_dl)
-        
-        # progress_bar = tqdm(
-        #     total=len(best_bbox_df), 
-        #     desc="generating embeddings", file=open(os.devnull, 'w'))
-        # logger.info(str(progress_bar))
-        # progress_step = len(best_bbox_df) // 5
-        # for batch_idx, x in enumerate(torch_dl):
-        #     with torch.no_grad():
-        #         bbox_embeddings = self.model(x)# B x 512
-        #         start_idx = batch_idx * batch_size
-        #         end_idx = batch_idx * batch_size + len(x)
-        #         bbox_labels = df.iloc[start_idx:end_idx]['bbox_label'].to_list()
-        #         bbox_embeddings = bbox_embeddings.detach().cpu()
-        #         self.embedstore.put_many(bbox_labels, bbox_embeddings, device=device)
-            
-        #     progress_bar.update(len(x))
-        #     if progress_bar.n >= progress_step:
-        #         logger.info(str(progress_bar))
-        #         progress_step += progress_bar.n
-        # logger.info(str(progress_bar))

@@ -11,7 +11,7 @@ class Config:
     chkpt_dirpath: str = os.path.join(cfg.BIN_DATA_DIR, 'chkpts')
     results_csv_filepath: str = os.path.join(cfg.BIN_DATA_DIR, 'test_results.csv')
     results_topk_bboxes: int = 15
-    tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'tb')
+    tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'bin', 'tb')
     experiment_version: str = None
     learning_rate: float = 1e-5
     lr_decay_rate: float = 0.95
@@ -33,3 +33,15 @@ class Config:
     nms_threshold: float = 1
     score_threshold: float = 0.95
     use_no_object_class: bool = False
+
+def bin_train_cfg() -> Config:
+    return Config()
+
+def coco_train_cfg() -> Config:
+    tcfg = Config()
+    tcfg.data_dirpath = cfg.COCO_DATA_DIR
+    tcfg.data_csv_filepath = os.path.join(cfg.COCO_DATA_DIR, 'inimage_queries.csv')
+    tcfg.embed_store_dirpath = os.path.join(cfg.COCO_DATA_DIR, 'embed_store')
+    tcfg.chkpt_dirpath = os.path.join(cfg.COCO_DATA_DIR, 'chkpts')
+    tcfg.results_csv_filepath = os.path.join(cfg.COCO_DATA_DIR, 'test_results.csv')
+    tcfg.tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'coco_2017', 'tb')

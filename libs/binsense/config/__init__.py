@@ -26,6 +26,8 @@ BIN_ROBO_WORKSPACE = 'nitesh-c-eszzc'
 BIN_ROBO_PROJECT = "binsense_segments"
 BIN_ROBO_DOWNLOAD_DIR = os.path.join(DATA_DIR, 'robo')
 
+COCO_DATA_DIR = os.path.join(DATA_DIR, 'coco_2017')
+
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
