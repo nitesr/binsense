@@ -45,3 +45,4 @@ def coco_train_cfg() -> Config:
     tcfg.chkpt_dirpath = os.path.join(cfg.COCO_DATA_DIR, 'chkpts')
     tcfg.results_csv_filepath = os.path.join(cfg.COCO_DATA_DIR, 'test_results.csv')
     tcfg.tb_logs_dir = os.path.join(cfg.LOGS_DIR, 'coco_2017', 'tb')
+    return tcfg

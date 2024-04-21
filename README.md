@@ -132,6 +132,7 @@ pip install -e libs
 mkdir _data _logs
 cp -vR data/* _data
 unzip data/bin/filtered_dataset.zip -d .
+unzip data/coco_2017/filtered_dataset.zip -d .
 ```
 
 ### Run the dataprep scripts
@@ -139,8 +140,12 @@ prerequisite: ec2 instance and conda env is setup
 ```
 python -m binsense.cli.run_rfds_downloader --download --dataset_version 2 --api_key '<api-key>' --cookie_str '<cookie>'
 python -m binsense.cli.run_rfds_validator_copier --copy --num_workers 10
+
 python -m binsense.cli.owlv2.run_bbox_embedder --batch_size 4 --strategy 'auto' --num_workers=10 --devices 1 --generate
 python -m binsense.cli.run_embeds_validator --validate
+
+python -m binsense.cli.owlv2.run_bbox_embedder_coco --batch_size 4 --strategy 'auto' --num_workers=10 --devices 1 --generate
+python -m binsense.cli.run_embeds_validator_coco --validate
 ```
 
 ### aws sync logs & checkpoints
@@ -154,7 +159,7 @@ crontab -e
 
 ### Tensorboard
 ```
-nohup tensorboard --logdir ~/binsense/_logs/tb --port 6006 --bind_all > ./_logs/tb_cli.log 2>&1 </dev/null &
+nohup tensorboard --logdir ~/binsense/_logs/coco_2017/tb --port 6006 --bind_all > ./_logs/tb_cli.log 2>&1 </dev/null &
 ```
 
 ### Train the owlv2 model
@@ -169,6 +174,8 @@ python -m binsense.cli.owlv2.train --train --profiler=simple \
 nohup python -m binsense.cli.owlv2.train --train --profiler=simple  \
 --experiment_version=v7 --batch_size=4 --max_epochs=40 --num_workers=3 \
 --score_threshold=0.9 > ./_logs/run_owlv2_train_v7.log 2>&1 </dev/null &
+
+python -m binsense.cli.owlv2.train_coco --build_dataset --pos_neg_dataset_ratio=99
 ```
 
 ### Test the owlv2 model
