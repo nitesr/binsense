@@ -5,7 +5,7 @@ data/*.yaml filter=lfs diff=lfs merge=lfs -text
 data/*.jpg filter=lfs diff=lfs merge=lfs -bin
 data/*.zip filter=lfs diff=lfs merge=lfs -bin
 data/coco_2017/*.zip filter=lfs diff=lfs merge=lfs -bin
-data/coco_2017/*.csv filter=lfs diff=lfs merge=lfs -bin
+data/coco_2017/*.csv filter=lfs diff=lfs merge=lfs -txt
 data/coco_2017/chkpts/* filter=lfs diff=lfs merge=lfs -bin
 data/bin/*.zip filter=lfs diff=lfs merge=lfs -bin
 data/bin/chkpts/* filter=lfs diff=lfs merge=lfs -bin
