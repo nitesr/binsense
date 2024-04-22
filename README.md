@@ -129,7 +129,7 @@ conda activate binsense_condaenv
 # pip install --upgrade --force-reinstall torch==2.2.1 torchvision
 pip install -r requirements.txt
 pip install -e libs
-mkdir _data _logs
+mkdir -p _data/coco_2017 _data/bin _logs/coco_2017 _logs/bin
 cp -vR data/* _data
 unzip data/bin/filtered_dataset.zip -d .
 unzip data/coco_2017/filtered_dataset.zip -d .
@@ -176,6 +176,10 @@ nohup python -m binsense.cli.owlv2.train --train --profiler=simple  \
 --score_threshold=0.9 > ./_logs/run_owlv2_train_v7.log 2>&1 </dev/null &
 
 python -m binsense.cli.owlv2.train_coco --build_dataset --pos_neg_dataset_ratio=99
+
+nohup python -m binsense.cli.owlv2.train_coco --train --profiler=simple  \
+--experiment_version=v0 --batch_size=4 --max_epochs=40 --num_workers=3 \
+--score_threshold=0.9 > ./_logs/coco_2017/run_owlv2_train_v0.log 2>&1 </dev/null &
 ```
 
 ### Test the owlv2 model
