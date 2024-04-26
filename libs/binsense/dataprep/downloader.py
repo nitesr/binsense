@@ -2,7 +2,7 @@ from ..config import BIN_S3_BUCKET
 from ..config import IK_DATA_INDEX_FILENAME
 from .. import resources as data
 from .config import DataPrepConfig
-from ..utils import get_default_on_none
+from ..utils import get_default_on_none, DirtyMarker
 
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -20,7 +20,7 @@ class BinS3DataDownloader:
     
     def __init__(self, cfg: DataPrepConfig = None) -> None:
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
-        self.mark_fpath = os.path.join(self.cfg.raw_data_root_dir, 'downloader_mark.dat')
+        self.dirty_marker = DirtyMarker('downloader', self.cfg.raw_data_root_dir)
 
     def _prepare(self, target_dir : str = None):
         """
@@ -45,37 +45,12 @@ class BinS3DataDownloader:
             .joinpath(IK_DATA_INDEX_FILENAME).is_file():
                 raise ValueError(f'.resources.{IK_DATA_INDEX_FILENAME} missing!')
 
-    # TODO: seperate the dirty marker into its own class
-    #   can be resued when preparing subsequent data transformations
-    def _mark(self):
-        """
-        marks the current downloaded time
-        """
-        with open(self.mark_fpath, 'w+') as f:
-            f.write(str(int(time.time())))
-
-    def _read_mark(self):
-        """
-        reads the last downloaded time
-        """
-        if not os.path.exists(self.mark_fpath):
-            # return oldest epoch
-            return 0 
-        
-        with open(self.mark_fpath, 'r') as f:
-            dt = f.readline()
-            return int(dt)
-
-    def _is_dirty(self):
-        """
-        checks if last download is latest based on timestamp on IK shared index file.
-        """
-        downloaded_time = self._read_mark()
+    def _index_mod_time(self):
         resource = resources.files(data).joinpath(IK_DATA_INDEX_FILENAME)
         with resources.as_file(resource) as data_file:
             file_modtime = int(os.path.getmtime(data_file))
-            return downloaded_time < file_modtime
-        
+        return file_modtime
+    
     def download(self, force: Optional[bool] = False, max_workers: int = 1):
         """
         downloads the bin data from s3 to local directories.
@@ -89,7 +64,7 @@ class BinS3DataDownloader:
         
         image_dir, meta_dir = self._prepare()
         
-        if (not force) and (not self._is_dirty()):
+        if (not force) and (not self.dirty_marker.is_dirty(self._index_mod_time)):
             return
         
         resource = resources.files(data).joinpath(IK_DATA_INDEX_FILENAME)
@@ -121,7 +96,8 @@ class BinS3DataDownloader:
                     img_fpath=target_image_file, 
                     meta_fpath=target_metadata_file))
             futures.wait(future_tasks)
-        self._mark()
+        self.dirty_marker.mark()
+        return None
 
 def download(force: bool =False, max_workers: int = 1) -> None:
     """

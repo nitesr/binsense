@@ -1,4 +1,8 @@
 *.csv filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -bin
+*.jpg filter=lfs diff=lfs merge=lfs -bin
+*.safetensors filter=lfs diff=lfs merge=lfs -bin
+*.ckpt filter=lfs diff=lfs merge=lfs -bin
 data/*.csv filter=lfs diff=lfs merge=lfs -text
 data/*.txt filter=lfs diff=lfs merge=lfs -text
 data/*.yaml filter=lfs diff=lfs merge=lfs -text
@@ -10,3 +14,5 @@ data/coco_2017/chkpts/* filter=lfs diff=lfs merge=lfs -bin
 data/bin/*.zip filter=lfs diff=lfs merge=lfs -bin
 data/bin/chkpts/* filter=lfs diff=lfs merge=lfs -bin
 data/coco_2017/embed_store/*.safetensors filter=lfs diff=lfs merge=lfs -bin
+data/amzbin/*.csv filter=lfs diff=lfs merge=lfs -text
+

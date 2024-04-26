@@ -3,7 +3,7 @@ from .config import DataPrepConfig
 
 from PIL import Image
 from tqdm import tqdm 
-from typing import Tuple, Any
+from typing import Tuple, List, Any
 from concurrent import futures
 
 import json, traceback, os, logging
@@ -21,53 +21,14 @@ class BinMetadataLoader:
     
     def __init__(self, cfg: DataPrepConfig = None) -> None:
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
-
-    def load(self, source_dir : str = None, max_workers: int = 1) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Loads the downloaded bin meta-data to pandas dataframes.
-        
-        Returns:
-            `Tuple[pandas.DataFrame, pandas.DataFrame]`: bin & item metadata panda DataFrames.
-            bin `DataFrame` columns = ['bin_id', 'bin_qty', 'bin_image_name', \
-                'bin_image_kb', 'bin_image_width', 'bin_image_height']
-            item `DataFrame` columns = [ 'bin_id', 'item_id', 'item_name', \
-                'item_qty', 'item_length', 'item_length_unit', 'item_width', \
-                'item_width_unit', 'item_height', 'item_height_unit', \
-                'item_weight', 'item_weight_unit']
-        """
-        ann_dir = self.cfg.data_split_labels_dir
-        img_dir = self.cfg.data_split_images_dir
-        
-        if source_dir is not None and source_dir != self.cfg.raw_data_root_dir:
-            ann_dir = os.path.join(
-                source_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
-            img_dir = os.path.join(
-                source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
-        
-        bin_df = pd.DataFrame(columns=[
-            'bin_id', 'bin_qty', 'bin_image_name', 'bin_img_exists',
-            'bin_image_kb', 'bin_image_width', 'bin_image_height'])
-        
-        item_df = pd.DataFrame(columns=[
-            'bin_id', 'item_id', 'item_name', 'item_qty',
-            'item_length', 'item_length_unit', 
-            'item_width', 'item_width_unit', 
-            'item_height', 'item_height_unit', 
-            'item_weight', 'item_weight_unit'])
-
-        ann_files = os.listdir(ann_dir)
-        task_progress_step = len(ann_files) // 10
-        task_progress_bar = tqdm(
-            total=len(ann_files), 
-            desc="creating bin-metadata load tasks", file=open(os.devnull, 'w'))
-        load_progress_step = len(ann_files) // 10
-        load_progress_bar = tqdm(
-            total=len(ann_files), 
-            desc="loading bin-metadata", file=open(os.devnull, 'w'))
+        self.bin_csv_fname = 'bins.csv'
+        self.item_csv_name = 'items.csv'
+    
+    def _dump_to_csv(self, img_dir: str, ann_dir: str, max_workers:int = 1):
         
         def load_json_file(ann_fname: str) -> None:
             meta_path = os.path.join(ann_dir, ann_fname)
-            with open(meta_path, 'r') as f:
+            with open(meta_path, 'r', buffering=2*1024) as f:
                 metadata_json = json.load(f)
             
             bin_id = ann_fname[0:ann_fname.rfind('.')]
@@ -111,6 +72,16 @@ class BinMetadataLoader:
             
             return bin_obj, bin_item_objs
         
+        ann_files = os.listdir(ann_dir)
+        task_progress_step = len(ann_files) // 10
+        task_progress_bar = tqdm(
+            total=len(ann_files), 
+            desc="creating bin-metadata load tasks", file=open(os.devnull, 'w'))
+        load_progress_step = len(ann_files) // 10
+        load_progress_bar = tqdm(
+            total=len(ann_files), 
+            desc="loading bin-metadata", file=open(os.devnull, 'w'))
+        
         logger.info(str(task_progress_bar))
         future_tasks = []
         with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -128,18 +99,77 @@ class BinMetadataLoader:
                     logger.info(str(task_progress_bar))
             logger.info(str(task_progress_bar))
             
+            def to_csv_line(values: List) -> str:
+                # escape csv special chars
+                str_values = [v.replace('"', '""').replace('\\', '\\\\') if isinstance(v, str) else v for v in values]
+                str_values = [f'"{v}"' if isinstance(v, str) else str(v) for v in str_values]
+                return ','.join(str_values)
+            
+            bin_csv_values = []
+            item_csv_values = []
             logger.info(str(load_progress_bar))
             for future_task in futures.as_completed(future_tasks):
                 bin_obj, bin_item_objs = future_task.result()
-                bin_df.loc[len(bin_df)] = bin_obj
+                
+                if len(bin_csv_values) == 0:
+                    bin_csv_values.append(to_csv_line(bin_obj.keys()))
+                bin_csv_values.append(to_csv_line(bin_obj.values()))
+                
                 for bin_item_obj in bin_item_objs:
-                    item_df.loc[len(item_df)] = bin_item_obj
+                    if len(item_csv_values) == 0:
+                        item_csv_values.append(to_csv_line(bin_item_obj.keys()))
+                    item_csv_values.append(to_csv_line(bin_item_obj.values()))
+                
                 load_progress_bar.update()
                 if load_progress_bar.n >= load_progress_step:
                     load_progress_step += load_progress_bar.n
-                logger.info(str(load_progress_bar))
+                    logger.info(str(load_progress_bar))
             logger.info(str(load_progress_bar))
-
+            
+            logger.info("writing csv files")
+            parentdir, _ = os.path.split(ann_dir)
+            bin_csv_path = os.path.join(parentdir, self.bin_csv_fname)
+            items_csv_path = os.path.join(parentdir, self.item_csv_name)
+            with open(bin_csv_path, 'w') as f:
+                f.writelines([f'{v}\n' for v in bin_csv_values])
+            with open(items_csv_path, 'w') as f:
+                f.writelines([f'{v}\n' for v in item_csv_values])
+            return bin_csv_path, items_csv_path
+    
+    
+    def load(self, source_dir : str = None, max_workers: int = 1) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Loads the downloaded bin meta-data to pandas dataframes.
+        
+        Returns:
+            `Tuple[pandas.DataFrame, pandas.DataFrame]`: bin & item metadata panda DataFrames.
+            bin `DataFrame` columns = ['bin_id', 'bin_qty', 'bin_image_name', \
+                'bin_img_exists', 'bin_image_kb', 'bin_image_width', 'bin_image_height']
+            item `DataFrame` columns = [ 'bin_id', 'item_id', 'item_name', \
+                'item_qty', 'item_length', 'item_length_unit', 'item_width', \
+                'item_width_unit', 'item_height', 'item_height_unit', \
+                'item_weight', 'item_weight_unit']
+        """
+        ann_dir = self.cfg.data_split_labels_dir
+        img_dir = self.cfg.data_split_images_dir
+        
+        if source_dir is not None and source_dir != self.cfg.raw_data_root_dir:
+            ann_dir = os.path.join(
+                source_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
+            img_dir = os.path.join(
+                source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
+        
+        bin_csv_path = os.path.join(source_dir, self.bin_csv_fname)
+        items_csv_path = os.path.join(source_dir, self.item_csv_name)
+        if not os.path.exists(bin_csv_path) \
+            or not os.path.exists(items_csv_path):
+            logger.info('generating csv files for caching')
+            self._dump_to_csv(img_dir, ann_dir, max_workers)
+        
+        logger.info('reading csv files')
+        bin_df = pd.read_csv(bin_csv_path, header=0)
+        item_df = pd.read_csv(items_csv_path, header=0)
+        
         return bin_df, item_df
 
 def load(source_dir: str = None, max_workers: int = 1) -> Tuple[pd.DataFrame, pd.DataFrame]:
