@@ -45,7 +45,7 @@ class BinMetadataLoader:
                 source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
         
         bin_df = pd.DataFrame(columns=[
-            'bin_id', 'bin_qty', 'bin_image_name', 
+            'bin_id', 'bin_qty', 'bin_image_name', 'bin_img_exists',
             'bin_image_kb', 'bin_image_width', 'bin_image_height'])
         
         item_df = pd.DataFrame(columns=[
@@ -56,11 +56,14 @@ class BinMetadataLoader:
             'item_weight', 'item_weight_unit'])
 
         ann_files = os.listdir(ann_dir)
-        progress_step = len(ann_files) // 10
-        progress_bar = tqdm(
+        task_progress_step = len(ann_files) // 10
+        task_progress_bar = tqdm(
+            total=len(ann_files), 
+            desc="creating bin-metadata load tasks", file=open(os.devnull, 'w'))
+        load_progress_step = len(ann_files) // 10
+        load_progress_bar = tqdm(
             total=len(ann_files), 
             desc="loading bin-metadata", file=open(os.devnull, 'w'))
-        logger.info(str(progress_bar))
         
         def load_json_file(ann_fname: str) -> None:
             meta_path = os.path.join(ann_dir, ann_fname)
@@ -70,12 +73,14 @@ class BinMetadataLoader:
             bin_id = ann_fname[0:ann_fname.rfind('.')]
             bin_image_name = f'{bin_id}{self.cfg.raw_data_img_extn}'
             bin_img_path = os.path.join(img_dir, bin_image_name)
-            bin_img_width, bin_img_height = Image.open(bin_img_path).size
+            bin_img_exists = os.path.exists(bin_img_path)
+            bin_img_width, bin_img_height = Image.open(bin_img_path).size if bin_img_exists else (0, 0)
             bin_obj = {
                 "bin_id" : bin_id,
                 "bin_qty" : metadata_json['EXPECTED_QUANTITY'],
                 "bin_image_name" : bin_image_name,
-                "bin_image_kb": round(os.stat( bin_img_path).st_size / 1024, 1),
+                "bin_img_exists": bin_img_exists,
+                "bin_image_kb": round(os.stat( bin_img_path).st_size / 1024, 1) if bin_img_exists else 0,
                 "bin_image_width": bin_img_width,
                 "bin_image_height": bin_img_height
             }
@@ -106,27 +111,34 @@ class BinMetadataLoader:
             
             return bin_obj, bin_item_objs
         
+        logger.info(str(task_progress_bar))
         future_tasks = []
         with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for f_name in ann_files:
                 meta_path = os.path.join(ann_dir, f_name)
                 if not os.path.isfile(meta_path):
                     continue
-
+                
                 future_tasks.append(executor.submit(
                     load_json_file, 
                     ann_fname=f_name))
-                
-        for future_task in futures.as_completed(future_tasks):
-            bin_obj, bin_item_objs = future_task.result()
-            bin_df.loc[len(bin_df)] = bin_obj
-            for bin_item_obj in bin_item_objs:
-                item_df.loc[len(item_df)] = bin_item_obj
-            progress_bar.update()
-            if progress_bar.n >= progress_step:
-                progress_step += progress_bar.n
-                logger.info(str(progress_bar))
-        logger.info(str(progress_bar))
+                task_progress_bar.update()
+                if task_progress_bar.n >= task_progress_step:
+                    task_progress_step += task_progress_bar.n
+                    logger.info(str(task_progress_bar))
+            logger.info(str(task_progress_bar))
+            
+            logger.info(str(load_progress_bar))
+            for future_task in futures.as_completed(future_tasks):
+                bin_obj, bin_item_objs = future_task.result()
+                bin_df.loc[len(bin_df)] = bin_obj
+                for bin_item_obj in bin_item_objs:
+                    item_df.loc[len(item_df)] = bin_item_obj
+                load_progress_bar.update()
+                if load_progress_bar.n >= load_progress_step:
+                    load_progress_step += load_progress_bar.n
+                logger.info(str(load_progress_bar))
+            logger.info(str(load_progress_bar))
 
         return bin_df, item_df
 
