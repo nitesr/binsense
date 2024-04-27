@@ -201,15 +201,15 @@ class LitInImageQuerier(L.LightningModule):
         tgt = torch.stack(target_counts, dim=0)
         
         metrics = OrderedDict()
-        # accuracy by meeting the target (pred > count)
-        if step in self.meets_acc:
-            self.meets_acc[step](pred, tgt)
-            metrics[f'{step}_meets_acc'] = self.meets_acc[step]
-            
         # accuracy by count
         if step in self.matches_acc:
             self.matches_acc[step](pred, tgt)
             metrics[f'{step}_matches_acc'] = self.matches_acc[step]
+            
+        # accuracy by meeting the target (pred > count)
+        if step in self.meets_acc:
+            self.meets_acc[step](pred, tgt)
+            metrics[f'{step}_meets_acc'] = self.meets_acc[step]
         
         # accuracy by presence
         if step in self.exists_acc:

@@ -152,7 +152,7 @@ python -m binsense.cli.run_embeds_validator_coco --validate
 prerequisite: create binsense bucker and add folder _logs
 ```
 aws configure
-crontab -e
+export EDITOR=vim; crontab -e
 # add below line to crontab
 # */5 * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1
 ```
@@ -190,9 +190,9 @@ python -m binsense.cli.owlv2.train --test --profiler=simple \
 --devices 1 --fast_dev_run=2
 
 nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
---experiment_version=testv6 --batch_size=4 --num_workers=3 \
---ckpt_fname=v6_epoch33_best.ckpt \
-> ./_logs/run_owlv2_test_v6.log 2>&1 </dev/null &
+--experiment_version=testv8 --batch_size=4 --num_workers=3 \
+--ckpt_fname=v8_epoch4_best.ckpt \
+> ./_logs/bin/run_owlv2_test_v8.log 2>&1 </dev/null &
 
 ```
 
@@ -201,7 +201,7 @@ nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
 
 ### Download checkpoint
 ```
-aws s3api get-object --bucket binsense --key _logs/tb/lightning_logs/v6/checkpoints/epoch=33-step=4862.ckpt ~/binsense/_data/bin/chkpts/v6_epoch33_best.ckpt --output json
+aws s3api get-object --bucket binsense --key _logs/bin/tb/lightning_logs/v8/checkpoints/epoch=4-step=715.ckpt ~/binsense/_data/bin/chkpts/v8_epoch4_best.ckpt --output json
 ```
 
 
