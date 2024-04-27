@@ -9,7 +9,7 @@ from ..embed_datastore import EmbeddingDatastore, SafeTensorEmbeddingDatastore
 from ..utils import get_default_on_none, backup_file
 from .. import torch_utils as tutls
 
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Callable, Dict
 from collections import Counter
 from torch.utils.data import Dataset as TorchDataset
 from torch.utils.data import DataLoader as TorchDataLoader
@@ -176,7 +176,8 @@ class _Dataset(TorchDataset):
         is_reorder: bool = False, 
         reorder_size: int = 8, 
         random_state: Any = None, 
-        transform: Any = None) -> None:
+        transform: Callable[[Tuple], Tuple] = None
+        ) -> None:
         
         super().__init__()
         self.random_state = random_state
@@ -238,7 +239,6 @@ class _Dataset(TorchDataset):
             "query": query,
             "idx": tutls.to_int_tensor(self.data_index[index])
         }
-        input = self.transform(inputs) if self.transform else inputs
         
         # targets
         count = tutls.to_int_tensor(item['count'])
@@ -249,7 +249,11 @@ class _Dataset(TorchDataset):
             "labels": labels,
             "boxes": bbox_coords
         }
-        return input, target
+        
+        if self.transform:
+            inputs, target = self.transform((inputs, target))
+        
+        return inputs, target
 
 def _collate_fn(batch):
     image_tensors = []

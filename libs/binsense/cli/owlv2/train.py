@@ -25,10 +25,14 @@ def _get_baseline_model():
 
 def _get_transform_fn(embed_ds):
     processor = Owlv2ImageProcessor()
-    def transform(inputs):
+    def transform(inputs, target):
+        orig_width, orig_height = inputs['image'].width, inputs['image'].height
+        max_length = max(orig_width, orig_height)
         inputs['image'] = processor.preprocess(inputs['image'])['pixel_values'][0]
         inputs['query'] = embed_ds.get(inputs['query']).reshape((1, -1))
-        return inputs
+        target['boxes'][:,0] = target['boxes'][:,0] * orig_width / max_length
+        target['boxes'][:,1] = target['boxes'][:,1] * orig_height / max_length
+        return inputs, target
     return transform
 
 def build_dataset(pos_neg_ratio: float = None):

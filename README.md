@@ -129,7 +129,7 @@ conda activate binsense_condaenv
 # pip install --upgrade --force-reinstall torch==2.2.1 torchvision
 pip install -r requirements.txt
 pip install -e libs
-mkdir -p _data/coco_2017 _data/bin _logs/coco_2017 _logs/bin
+mkdir -p _data/coco_2017 _data/bin _data/amzbin _logs/coco_2017 _logs/bin
 cp -vR data/* _data
 unzip data/bin/filtered_dataset.zip -d .
 unzip data/coco_2017/filtered_dataset.zip -d .

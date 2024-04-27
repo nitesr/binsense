@@ -28,6 +28,7 @@ class BinMetadataLoader:
         
         def load_json_file(ann_fname: str) -> None:
             meta_path = os.path.join(ann_dir, ann_fname)
+            # each file is at max 2KB, load all file into buffer
             with open(meta_path, 'r', buffering=2*1024) as f:
                 metadata_json = json.load(f)
             
