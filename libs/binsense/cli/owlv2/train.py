@@ -25,7 +25,8 @@ def _get_baseline_model():
 
 def _get_transform_fn(embed_ds):
     processor = Owlv2ImageProcessor()
-    def transform(inputs, target):
+    def transform(record):
+        inputs, target = record
         orig_width, orig_height = inputs['image'].width, inputs['image'].height
         max_length = max(orig_width, orig_height)
         inputs['image'] = processor.preprocess(inputs['image'])['pixel_values'][0]

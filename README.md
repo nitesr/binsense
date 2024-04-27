@@ -172,8 +172,8 @@ python -m binsense.cli.owlv2.train --train --profiler=simple \
 --devices 1 --fast_dev_run=1
 
 nohup python -m binsense.cli.owlv2.train --train --profiler=simple  \
---experiment_version=v7 --batch_size=4 --max_epochs=40 --num_workers=3 \
---score_threshold=0.9 > ./_logs/run_owlv2_train_v7.log 2>&1 </dev/null &
+--experiment_version=v8 --batch_size=4 --max_epochs=40 --num_workers=3 \
+--score_threshold=0.9 > ./_logs/run_owlv2_train_v8.log 2>&1 </dev/null &
 
 python -m binsense.cli.owlv2.train_coco --build_dataset --pos_neg_dataset_ratio=99
 
