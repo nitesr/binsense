@@ -31,8 +31,9 @@ def _get_transform_fn(embed_ds):
         max_length = max(orig_width, orig_height)
         inputs['image'] = processor.preprocess(inputs['image'])['pixel_values'][0]
         inputs['query'] = embed_ds.get(inputs['query']).reshape((1, -1))
-        target['boxes'][:,0] = target['boxes'][:,0] * orig_width / max_length
-        target['boxes'][:,1] = target['boxes'][:,1] * orig_height / max_length
+        if target['boxes'].shape[0] > 1:
+            target['boxes'][:,0] = target['boxes'][:,0] * orig_width / max_length
+            target['boxes'][:,1] = target['boxes'][:,1] * orig_height / max_length
         return inputs, target
     return transform
 
