@@ -353,7 +353,8 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
     
     def embed_image_query(
         self, 
-        query_image_features: torch.FloatTensor
+        query_image_features: torch.FloatTensor,
+        query_bbox: torch.Tensor = torch.as_tensor([0.5, 0.5, 1, 1])
     ) -> torch.FloatTensor:
         _, class_embeds = self.class_predictor(query_image_features)
         pred_boxes = self.box_predictor(query_image_features)
@@ -365,7 +366,8 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         pred_boxes_device = pred_boxes_as_corners.device
 
         for i in range(query_image_features.shape[0]):
-            each_query_box = torch.tensor([[0, 0, 1, 1]], device=pred_boxes_device)
+            each_query_box = query_bbox.to(pred_boxes_device).unsqueeze(0)
+            each_query_box = center_to_corners_format_torch(each_query_box)
             each_query_pred_boxes = pred_boxes_as_corners[i]
             ious, _ = box_iou(each_query_box, each_query_pred_boxes)
 

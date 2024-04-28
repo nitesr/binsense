@@ -773,7 +773,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
             in the batch as predicted by the model. All labels are set to None as
             `Owlv2ForObjectDetection.image_guided_detection` perform one-shot object detection.
         """
-        logits, target_boxes = outputs.logits, outputs.target_pred_boxes
+        logits, target_boxes = outputs.pred_logits, outputs.pred_boxes
 
         if len(logits) != len(target_sizes):
             raise ValueError("Make sure that you pass in as many target sizes as the batch dimension of the logits")
@@ -823,7 +823,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
             alphas[idx] = query_alphas
 
             mask = alphas[idx] > 0
-            box_scores = alphas[idx][mask]
+            box_scores = scores[idx][mask]
             boxes = target_boxes[idx][mask]
             results.append({"scores": box_scores, "labels": None, "boxes": boxes})
 

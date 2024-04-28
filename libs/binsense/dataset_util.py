@@ -24,6 +24,7 @@ class BoundingBox:
     center_y: float = None
     width: float = None
     height: float = None
+    area: float = None
     segmentation: List[np.ndarray] = None
     normalized: bool = True
     _label_id: int = None
@@ -602,10 +603,11 @@ class COCODataset(Dataset):
                 height=ann['bbox'][3] / img['height'],
                 normalized=True
             )
+            b.area=ann['area'] if ann['area'] / (img['width'] * img['height'])  else (b.width * b.height)
             segments = []
             if ann['segmentation']:
                 for seg in ann['segmentation']:
-                    segments.append(np.array([ [seg[i], seg[i+1]] for i in range(0, len(seg), 2) ]))
+                    segments.append(np.array([ [seg[i] / img['width'], seg[i+1] / img['height']] for i in range(0, len(seg), 2) ]))
             b.segmentation = segments
             anns.append(b)
         return anns
