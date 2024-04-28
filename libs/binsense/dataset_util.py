@@ -24,6 +24,7 @@ class BoundingBox:
     center_y: float = None
     width: float = None
     height: float = None
+    segmentation: List[np.ndarray] = None
     normalized: bool = True
     _label_id: int = None
     _img_id: int = None
@@ -530,11 +531,17 @@ class YoloDatasetBuilder(DatasetBuilder):
 # -- refactor below code to meet the interfaces ----------------
 
 class COCODataset(Dataset):
-    def __init__(self, data: dict, tag: DataTag = DataTag.TRAIN) -> None:
+    def __init__(
+        self, data: dict, tag: DataTag = DataTag.TRAIN,
+        image_name_extractor: Callable[[str], str] = None,
+        label_name_extractor: Callable[[str], str] = None
+    ) -> None:
         super(COCODataset, self).__init__()
         self.datasets = {}
         self.datasets[tag] = data
         self.data = data
+        self.image_name_extractor = image_name_extractor
+        self.label_name_extractor = label_name_extractor
     
     def _check_if_exists(self, value: str, lst: list, attr_name: str = 'name') -> Tuple[bool, int]:
         for i, r in enumerate(lst):
@@ -551,6 +558,9 @@ class COCODataset(Dataset):
         
         return None
     
+    def _extract(self, value, extractor):
+        return extractor(value) if extractor else value
+    
     def get_images(self, tag: DataTag = DataTag.TRAIN) -> List[ImageData]:
         if tag not in self.datasets:
             return []
@@ -558,9 +568,10 @@ class COCODataset(Dataset):
         images_data = []
         data = self.datasets[tag]
         for img in data['images']:
+            img['image_name'] = self._extract(img['file_name'], self.image_name_extractor)
             d = ImageData(
                 id = img['id'],
-                name=img['file_name'],
+                name=img['image_name'],
                 path=f"{tag.value}/images/{img['file_name']}",
                 width=img['width'],
                 height=img['height'],
@@ -571,7 +582,7 @@ class COCODataset(Dataset):
         return images_data
     
     def get_bboxes(self, img_name: str) -> List[BoundingBox]:
-        exists, img_id = self._check_if_exists(img_name, self.data['images'], 'file_name')
+        exists, img_id = self._check_if_exists(img_name, self.data['images'], 'image_name')
         if not exists:
             return []
         
@@ -580,8 +591,9 @@ class COCODataset(Dataset):
         for ann in filter(lambda x: x['image_id'] == img['id'], self.data['annotations']):
             _, cat_id = self._check_if_exists(ann["category_id"], self.data['categories'], 'id')
             cat = self.data['categories'][cat_id]
+            cat['label'] = self._extract(cat['name'], self.label_name_extractor)
             b = BoundingBox(
-                label=cat['name'],
+                label=cat['label'],
                 _label_id=cat['id'],
                 _img_id=img['id'],
                 center_x= (ann['bbox'][0] + ann['bbox'][2] * 0.5) / img['width'],
@@ -590,6 +602,11 @@ class COCODataset(Dataset):
                 height=ann['bbox'][3] / img['height'],
                 normalized=True
             )
+            segments = []
+            if ann['segmentation']:
+                for seg in ann['segmentation']:
+                    segments.append(np.array([ [seg[i], seg[i+1]] for i in range(0, len(seg), 2) ]))
+            b.segmentation = segments
             anns.append(b)
         return anns
     
@@ -597,7 +614,7 @@ class COCODataset(Dataset):
         bboxes = self.get_bboxes(img_name)
         filtered_labels  = []
         for bbox in bboxes:
-            _, cat_id = self._check_if_exists(bbox.label, self.data['categories'], 'name')
+            _, cat_id = self._check_if_exists(bbox.label, self.data['categories'], 'label')
             cat = self.data['categories'][cat_id]
             filtered_labels.append(LabelData(id=cat['id'], name=cat['name']))
         return filtered_labels
@@ -776,7 +793,7 @@ class COCODatasetBuilder(DatasetBuilder):
         }))
         return i
     
-    def build(self) -> Dataset:
+    def build(self) -> COCODataset:
         return COCODataset(dict({
             'info': dict(self.info),
             'licenses': self.licenses,
@@ -785,8 +802,16 @@ class COCODatasetBuilder(DatasetBuilder):
             'annotations': self.annotations
         }))
     
-    def build_from_file(file_path: str) -> Dataset:
-        return COCODataset(json.loads(Path(file_path).read_text()))
+    def build_from_file(
+        file_path: str,
+        image_name_extractor: Callable[[str], str] = None,
+        label_name_extractor: Callable[[str], str] = None
+    ) -> COCODataset:
+        return COCODataset(
+            json.loads(Path(file_path).read_text()),
+            image_name_extractor = image_name_extractor,
+            label_name_extractor = label_name_extractor
+        )
 
 class VOCDatasetBuilder(DatasetBuilder):
     def __init__(self) -> None:

@@ -160,6 +160,9 @@ class BinMetadataLoader:
             img_dir = os.path.join(
                 source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
         
+        if source_dir is None:
+            source_dir = self.cfg.raw_data_root_dir
+        
         bin_csv_path = os.path.join(source_dir, self.bin_csv_fname)
         items_csv_path = os.path.join(source_dir, self.item_csv_name)
         if not os.path.exists(bin_csv_path) \
@@ -168,8 +171,8 @@ class BinMetadataLoader:
             self._dump_to_csv(img_dir, ann_dir, max_workers)
         
         logger.info('reading csv files')
-        bin_df = pd.read_csv(bin_csv_path, header=0)
-        item_df = pd.read_csv(items_csv_path, header=0)
+        bin_df = pd.read_csv(bin_csv_path, header=0, dtype={'bin_id': str})
+        item_df = pd.read_csv(items_csv_path, header=0, dtype={'item_id': str, 'bin_id': str})
         
         return bin_df, item_df
 
