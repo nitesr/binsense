@@ -163,6 +163,7 @@ cython_debug/
 .DS_Store
 
 # Custom Folders
+data/
 _data/
 _models/
 _logs/
