@@ -1,0 +1,79 @@
+name: provision-infra
+on:
+    workflow_dispatch:
+        inputs:
+            region:
+                description: 'AWS Region'
+                required: true
+                default: 'us-east-1'
+            keypairName:
+                description: 'key pair name'
+                required: true
+                default: 'BinFinderKey'
+jobs:
+    provision-infra:
+        name: Deploy stack to AWS
+        runs-on: ubuntu-latest
+        environment: cloud
+        outputs:
+            env-name: ${{ steps.env-name.outputs.environment }}
+        permissions:
+          contents: read
+          id-token: write
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Configure AWS credentials
+          id: creds
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ github.event.inputs.region}}
+
+        - name: Configure environment name
+          id: env-name
+          env:
+            REPO: ${{ github.repository }}
+          run: |
+            ENVIRONMENT=`echo $REPO | tr "/" "-"`
+            echo "Environment name: $ENVIRONMENT"
+            echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        - name: Install aws cli
+          id: aws-cli
+          uses: unfor19/install-aws-cli-action@v1
+          with:
+            version: 2
+            verbose: false
+            arch: amd64
+
+        - name: Create Binfinder KeyPair in AWS
+          id: binfinder-keypair
+          run: |
+            which aws
+            echo "pub key is ${{ vars.BINFINDER_ED25519_PUB }}, keyPairname is ${{ github.event.inputs.keypairName }}"
+            echo "${{ vars.BINFINDER_ED25519_PUB }}" > ~/id_ed25519.pub
+            cat ~/id_ed25519.pub
+            set +e
+            aws ec2 describe-key-pairs --key-name  ${{ github.event.inputs.keypairName }} 2> /dev/null
+            [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name ${{ github.event.inputs.keypairName }} --public-key-material fileb://~/id_ed25519.pub --output json)
+            
+        - name: Create Binfinder KeyPair in AWS
+          id: binfinder-vpc
+          run: |
+            DEFAULT_VPC_ID=$(aws ec2 describe-vpcs --query 'Vpcs[0].VpcId' --output json | tr -d '"')
+            echo "DEFAULT_VPC_ID=$DEFAULT_VPC_ID"
+            echo "defaultVpcId=$DEFAULT_VPC_ID" >> $GITHUB_OUTPUT
+
+        - name: Create Binfinder stack in AWS
+          id: binfinder-stack
+          uses: aws-actions/aws-cloudformation-github-deploy@master
+          with:
+            name: ${{ steps.env-name.outputs.environment }}-stack
+            template: apps/binfinder/binfinder_cloudformation.yaml
+            no-fail-on-empty-changeset: "1"
+            parameter-overrides: >-
+                BinFinderKeyName=${{ github.event.inputs.keypairName}},
+                DefaultVPCId=${{ steps.binfinder-vpc.outputs.defaultVpcId }}

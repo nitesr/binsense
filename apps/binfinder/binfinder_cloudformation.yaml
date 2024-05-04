@@ -1,0 +1,70 @@
+Parameters:
+  BinFinderKeyName:
+    Description: key pair name
+    Type: String
+  DefaultVPCId:
+    Description: Default VPC Id
+    Type: String
+  
+Resources:
+  # BinFinderKeyPair:
+  #   Type: AWS::EC2::KeyPair
+  #   DeletionPolicy: "Retain"
+  #   Properties:
+  #     KeyName: BinFinderKey
+  #     PublicKeyMaterial: !Ref BinFinderPubKey
+
+  BinFinderInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: ami-0da2ab58cace8997d
+      InstanceType: t2.micro
+      KeyName: !Ref BinFinderKeyName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: '0'
+          GroupSet:
+            - !Ref BinFinderSSHSecurityGroup
+            - !Ref BinFinderHttpSecurityGroup
+      Tags:
+        - Key: Name
+          Value: binfinder
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            Encrypted: false
+            VolumeType: gp3
+            Iops: 3000
+            DeleteOnTermination: true
+            VolumeSize: 75
+            SnapshotId: snap-0548faad3e87fff59
+
+  # our EC2 security group
+  BinFinderSSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+      VpcId: !Ref DefaultVPCId
+
+  # our second EC2 security group
+  BinFinderHttpSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP access via port 80
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref DefaultVPCId
+
+Outputs:
+  BinFinderPublicIp:
+    Description: Binfinder app host
+    Value: !GetAtt BinFinderInstance.PublicDnsName

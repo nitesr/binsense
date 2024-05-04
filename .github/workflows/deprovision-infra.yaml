@@ -1,0 +1,52 @@
+name: deprovision-infra
+on:
+    workflow_dispatch:
+        inputs:
+            region:
+                description: 'AWS Region'
+                required: true
+                default: 'us-east-1'
+jobs:
+    provision-infra:
+        name: Delete stack in AWS
+        runs-on: ubuntu-latest
+        environment: cloud
+        outputs:
+            env-name: ${{ steps.env-name.outputs.environment }}
+        permissions:
+          contents: read
+          id-token: write
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        
+        # - name: Install aws cli
+        #   uses: unfor19/install-aws-cli-action@v1
+        #   with:
+        #     version: 2
+        #     verbose: false
+        #     arch: amd64
+
+        - name: Configure AWS credentials
+          id: creds
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ github.event.inputs.region}}
+
+        - name: Configure environment name
+          id: env-name
+          env:
+            REPO: ${{ github.repository }}
+          run: |
+            ENVIRONMENT=`echo $REPO | tr "/" "-"`
+            echo "Environment name: $ENVIRONMENT"
+            echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+
+        - name: Delete Binfinder stack in AWS
+          id: binfinder-stack
+          uses: go-to-k/delstack@main
+          with:
+            stack-name: ${{ steps.env-name.outputs.environment }}-stack
+            region: ${{ github.event.inputs.region}}
