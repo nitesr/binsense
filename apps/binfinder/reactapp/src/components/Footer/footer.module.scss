@@ -1,0 +1,15 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  color: deeppink;
+
+  ul {
+    list-style-type: none;
+    text-align: center;
+    line-height: 150%;
+    margin: 0;
+    padding: 0;
+  }
+}

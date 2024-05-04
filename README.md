@@ -204,6 +204,14 @@ nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
 aws s3api get-object --bucket binsense --key _logs/bin/tb/lightning_logs/v8/checkpoints/epoch=4-step=715.ckpt ~/binsense/_data/bin/chkpts/v8_epoch4_best.ckpt --output json
 ```
 
+### Run web app
+```
+yarn --cwd apps/binfinder/reactapp install
+yarn --cwd apps/binfinder/reactapp build
 
+docker build -t binfinder:latest -f ./apps/binfinder/Dockerfile .
+DOCKER_IMG_ID=$(docker images | grep "binfinder" | xargs echo $1 | cut -d ' ' -f 3)
+docker run -p 8080:8080 -ti $DOCKER_IMG_ID
+```
 
 

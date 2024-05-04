@@ -171,3 +171,7 @@ _mount/
 
 # lightning
 lightning_logs
+
+# npm
+node_modules
+dist

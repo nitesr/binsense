@@ -806,11 +806,13 @@ class COCODatasetBuilder(DatasetBuilder):
     
     def build_from_file(
         file_path: str,
+        tag: DataTag = DataTag.TRAIN,
         image_name_extractor: Callable[[str], str] = None,
         label_name_extractor: Callable[[str], str] = None
     ) -> COCODataset:
         return COCODataset(
             json.loads(Path(file_path).read_text()),
+            tag = tag,
             image_name_extractor = image_name_extractor,
             label_name_extractor = label_name_extractor
         )
