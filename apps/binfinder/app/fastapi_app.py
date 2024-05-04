@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.middleware.cors import CORSMiddleware
 
 from typing import List
 from enum import Enum
@@ -48,12 +48,12 @@ class FulfilResult(BaseModel):
 app = FastAPI()
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 templates = Jinja2Templates(directory="templates")
-app.add_middleware(
-  CORSMiddleware,
-  allow_origins = ["*"],
-  allow_methods = ["*"],
-  allow_headers = ["*"]
-)
+# app.add_middleware(
+#   CORSMiddleware,
+#   allow_origins = ["*"],
+#   allow_methods = ["*"],
+#   allow_headers = ["*"]
+# )
 
 @app.get('/', include_in_schema=False)
 def index(request: Request):
