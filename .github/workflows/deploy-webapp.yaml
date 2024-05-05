@@ -6,6 +6,10 @@ on:
                 description: 'AWS Region'
                 required: true
                 default: 'us-east-1'
+            ec2User:
+                description: 'ec2 host user'
+                required: true
+                default: 'ec2-user'
             publicDnsName:
                 description: 'EC2 instance public host'
                 required: true
@@ -77,7 +81,7 @@ jobs:
               uses: appleboy/ssh-action@master
               with:
                 host: ${{ github.event.inputs.publicDnsName }}
-                username: ec2-user
+                username: ${{ github.event.inputs.ec2User }}
                 key: ${{ secrets.BINFINDER_ED25519_KEY }}
                 envs: PRIVATE_SSH_KEY,REGISTRY,REPOSITORY,IMAGE_TAG,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
                 script: |
