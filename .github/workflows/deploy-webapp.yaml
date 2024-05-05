@@ -1,0 +1,101 @@
+name: deploy-webapp
+on:
+    workflow_dispatch:
+        inputs:
+            region:
+                description: 'AWS Region'
+                required: true
+                default: 'us-east-1'
+            publicDnsName:
+                description: 'EC2 instance public host'
+                required: true
+env:
+    PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_ED25519_KEY }}
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        environment: cloud
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install Nodejs
+              id: install-nodejs
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20.x'
+            
+            - name: Install reactapp dependencies
+              id: install-reactapp-dep
+              run: yarn --frozen-lockfile
+
+            - name: Configure AWS credentials
+              id: creds
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ github.event.inputs.region}}
+            
+            - name: Configure environment name
+              id: env-name
+              env:
+                REPO: ${{ github.repository }}
+              run: |
+                ENVIRONMENT=`echo $REPO | tr "/" "-"`
+                echo "Environment name: $ENVIRONMENT"
+                echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+            
+            - name: Login to ECR
+              id: login-ecr
+              uses: aws-actions/amazon-ecr-login@v4
+            
+            - name: Build and Push Docker Image
+              id: buil-push-dockerimage
+              env:
+                REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                REPOSITORY: ${{ steps.env-name.outputs.environment }}-webapp
+                IMAGE_TAG: ${{ github-sha }}
+              working-directory: ./binsense
+              run: |
+                yarn --cwd apps/binfinder/reactapp --frozen-lockfile
+                yarn --cwd apps/binfinder/reactapp build
+                docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -f ./apps/binfinder/Dockerfile . 
+                docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            
+            - name: Deploy Docker to EC2
+              id: deploy-image-ec2
+              env:
+                REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                REPOSITORY: ${{ steps.env-name.outputs.environment }}-webapp
+                IMAGE_TAG: ${{ github-sha }}
+                AWS_DEFAULT_REGION: 'us-east-1'
+                AWS_REGION: 'us-east-1'
+              uses: appleboy/ssh-action@master
+              with:
+                host: $${{ github.event.inputs.publicDnsName }}
+                username: ubuntu
+                key: ${{ env.PRIVATE_SSH_KEY }}
+                envs: PRIVATE_SSH_KEY,REGISTRY,REPOSITORY,IMAGE_TAG,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+                script: |
+                    sudo apt update
+                    sudo apt install docker.io -y
+                    sudo apt install awscli -y
+                    sudo $(aws ecr get-login --no-include-email --region us-east-1);
+                    sudo docker stop binfinder || true
+                    sudo docker rm binfinder || true
+                    sudo docker pull $REGISTRY/$REPOSITORY:$IMAGE_TAG
+                    sudo docker run -d --name binfinder -p 80:8080 $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+
+                
+            
+
+
+            
+            
