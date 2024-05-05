@@ -31,10 +31,10 @@ Resources:
         - Key: Name
           Value: binfinder
       BlockDeviceMappings:
-        - DeviceName: "/dev/sda1"
+        - DeviceName: "/dev/xvda"
           Ebs:
             DeleteOnTermination: true
-            VolumeSize: 20
+            VolumeSize: 30
 
   # our EC2 security group
   BinFinderSSHSecurityGroup:
