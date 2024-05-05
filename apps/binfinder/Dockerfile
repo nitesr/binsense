@@ -12,9 +12,11 @@ RUN pip3 install -r app-requirements.txt
 RUN rm -fR /build
 
 WORKDIR /work
+RUN mkdir templates
+RUN mkdir assets
 COPY ./apps/binfinder/app .
-COPY ./apps/binfinder/reactapp/dist/index.html ./templates
-COPY ./apps/binfinder/reactapp/dist/assets/* ./assets
+COPY ./apps/binfinder/reactapp/dist/index.html templates
+COPY ./apps/binfinder/reactapp/dist/assets assets
 
 
 EXPOSE 8080
