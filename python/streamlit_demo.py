@@ -1,11 +1,13 @@
 # importing the libraries and dependencies needed for creating the UI and supporting the deep learning models used in the project
 import random
+import subprocess
+import warnings
+import numpy as np
 import streamlit as st
 import tensorflow as tf
 
 from PIL import Image, ImageOps
-import numpy as np
-import subprocess
+
 
 # Running the 'which python' command to find out which Python interpreter is being used
 result = subprocess.run(["which", "python"], stdout=subprocess.PIPE, text=True)
@@ -14,8 +16,6 @@ result = subprocess.run(["which", "python"], stdout=subprocess.PIPE, text=True)
 print(result.stdout.strip())
 
 # hide deprication warnings which directly don't affect the working of the application
-import warnings
-
 warnings.filterwarnings("ignore")
 
 # set some pre-defined configurations for the page, such as the page title, logo-icon, page loading state (whether the page is loaded automatically or you need to perform some action for loading)
@@ -23,10 +23,10 @@ st.set_page_config(page_title="Mango Leaf Disease Detection", page_icon=":mango:
 
 # hide the part of the code, as this is just for adding some custom CSS styling but not a part of the main idea
 hide_streamlit_style = """
-	<style>
-  #MainMenu {visibility: hidden;}
-	footer {visibility: hidden;}
-  </style>
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
 """
 st.markdown(
     hide_streamlit_style, unsafe_allow_html=True
@@ -48,12 +48,11 @@ with st.spinner("Model is being loaded.."):
 def prediction_cls(prediction):  # predict the class of the images based on the model results
     for key, clss in class_names:  # create a dictionary of the output classes
         if np.argmax(prediction) == clss:  # check the class
-
             return key
 
 
 with st.sidebar:
-    # st.image("mg.png")
+    st.image("./assets/sunrise-by-the-mountains_reduced.jpg", caption="Sunrise by the mountains")
     st.title("Mangifera Healthika")
     st.subheader(
         "Accurate detection of diseases present in the mango leaves. This helps an user to easily detect the disease and identify it's cause."
@@ -70,8 +69,8 @@ file = st.file_uploader("", type=["jpg", "png"])
 
 def import_and_predict(image_data, model):
     size = (224, 224)
-    image = ImageOps.fit(image_data, size, Image.Resampling.LANCZOS)
-    img = np.asarray(image)
+    resized_image = ImageOps.fit(image_data, size, Image.Resampling.LANCZOS)
+    img = np.asarray(resized_image)
     img_reshape = img[np.newaxis, ...]
     prediction = model.predict(img_reshape)
     return prediction
