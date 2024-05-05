@@ -85,9 +85,9 @@ jobs:
                 key: ${{ secrets.BINFINDER_ED25519_KEY }}
                 envs: PRIVATE_SSH_KEY,REGISTRY,REPOSITORY,IMAGE_TAG,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
                 script: |
-                    sudo apt update
-                    sudo apt install docker.io -y
-                    sudo apt install awscli -y
+                    sudo yum update
+                    sudo yum install docker.io -y
+                    sudo yum install awscli -y
                     sudo $(aws ecr get-login --no-include-email --region us-east-1);
                     sudo docker stop binfinder || true
                     sudo docker rm binfinder || true
