@@ -60,7 +60,7 @@ jobs:
               env:
                 REGISTRY: ${{ steps.login-ecr.outputs.registry }}
                 REPOSITORY: ${{ steps.env-name.outputs.environment }}-webapp
-                IMAGE_TAG: ${{ github-sha }}
+                IMAGE_TAG: ${{ github.sha }}
               working-directory: ./binsense
               run: |
                 yarn --cwd apps/binfinder/reactapp --frozen-lockfile
@@ -73,7 +73,7 @@ jobs:
               env:
                 REGISTRY: ${{ steps.login-ecr.outputs.registry }}
                 REPOSITORY: ${{ steps.env-name.outputs.environment }}-webapp
-                IMAGE_TAG: ${{ github-sha }}
+                IMAGE_TAG: ${{ github.sha }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
               uses: appleboy/ssh-action@master
