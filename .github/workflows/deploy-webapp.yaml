@@ -76,7 +76,7 @@ jobs:
                 AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
               uses: appleboy/ssh-action@master
               with:
-                host: $${{ github.event.inputs.publicDnsName }}
+                host: ${{ github.event.inputs.publicDnsName }}
                 username: ubuntu
                 key: ${{ secrets.BINFINDER_ED25519_KEY }}
                 envs: PRIVATE_SSH_KEY,REGISTRY,REPOSITORY,IMAGE_TAG,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
