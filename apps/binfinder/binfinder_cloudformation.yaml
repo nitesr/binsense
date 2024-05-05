@@ -30,14 +30,11 @@ Resources:
       Tags:
         - Key: Name
           Value: binfinder
-      # BlockDeviceMappings:
-      #   - DeviceName: /dev/sda1
-      #     Ebs:
-      #       Encrypted: false
-      #       VolumeType: gp3
-      #       Iops: 3000
-      #       DeleteOnTermination: true
-      #       VolumeSize: 8
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 20
 
   # our EC2 security group
   BinFinderSSHSecurityGroup:
