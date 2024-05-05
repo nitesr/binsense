@@ -51,14 +51,17 @@ jobs:
 
         - name: Create Binfinder KeyPair in AWS
           id: binfinder-keypair
+          env:
+            KEYPAIR_NAME: ${{ github.event.inputs.keypairName }}
+            PUB_KEY: ${{ vars.BINFINDER_RSA_PUB }}
           run: |
             which aws
-            echo "pub key is ${{ vars.BINFINDER_RSA_PUB }}, keyPairname is ${{ github.event.inputs.keypairName }}"
-            echo "${{ vars.BINFINDER_RSA_PUB }}" > ~/id_rsa.pub
+            echo "pub key is $PUB_KEY, keyPairname is $KEYPAIR_NAME"
+            echo "$PUB_KEY" > ~/id_rsa.pub
             cat ~/id_rsa.pub
             set +e
-            aws ec2 describe-key-pairs --key-name  ${{ github.event.inputs.keypairName }} 2> /dev/null
-            [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name ${{ github.event.inputs.keypairName }} --public-key-material fileb://~/id_rsa.pub --output json)
+            aws ec2 describe-key-pairs --key-name  $KEYPAIR_NAME --output json 2> /dev/null
+            [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name $KEYPAIR_NAME --public-key-material fileb://~/id_rsa.pub --output json)
             
         - name: Lookup default VPC
           id: binfinder-vpc
