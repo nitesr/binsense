@@ -53,12 +53,12 @@ jobs:
           id: binfinder-keypair
           run: |
             which aws
-            echo "pub key is ${{ vars.BINFINDER_ED25519_PUB }}, keyPairname is ${{ github.event.inputs.keypairName }}"
-            echo "${{ vars.BINFINDER_ED25519_PUB }}" > ~/id_ed25519.pub
-            cat ~/id_ed25519.pub
+            echo "pub key is ${{ vars.BINFINDER_RSA_PUB }}, keyPairname is ${{ github.event.inputs.keypairName }}"
+            echo "${{ vars.BINFINDER_RSA_PUB }}" > ~/id_rsa.pub
+            cat ~/id_rsa.pub
             set +e
             aws ec2 describe-key-pairs --key-name  ${{ github.event.inputs.keypairName }} 2> /dev/null
-            [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name ${{ github.event.inputs.keypairName }} --public-key-material fileb://~/id_ed25519.pub --output json)
+            [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name ${{ github.event.inputs.keypairName }} --public-key-material fileb://~/id_rsa.pub --output json)
             
         - name: Lookup default VPC
           id: binfinder-vpc

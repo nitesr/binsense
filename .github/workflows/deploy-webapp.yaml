@@ -71,14 +71,14 @@ jobs:
                 IMAGE_TAG: ${{ steps.env-name.outputs.environment }}-webapp-${{ github.sha }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
-                PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_ED25519_KEY }}
+                PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_RSA_KEY }}
                 AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
                 AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
               uses: appleboy/ssh-action@master
               with:
                 host: ${{ github.event.inputs.publicDnsName }}
                 username: ubuntu
-                key: ${{ secrets.BINFINDER_ED25519_KEY }}
+                key: ${{ secrets.BINFINDER_RSA_KEY }}
                 envs: PRIVATE_SSH_KEY,REGISTRY,REPOSITORY,IMAGE_TAG,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
                 script: |
                     sudo apt update
