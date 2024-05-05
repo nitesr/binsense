@@ -60,7 +60,7 @@ jobs:
             aws ec2 describe-key-pairs --key-name  ${{ github.event.inputs.keypairName }} 2> /dev/null
             [ $? -eq 0 ] || $(aws ec2 import-key-pair --key-name ${{ github.event.inputs.keypairName }} --public-key-material fileb://~/id_ed25519.pub --output json)
             
-        - name: Create Binfinder KeyPair in AWS
+        - name: Lookup default VPC
           id: binfinder-vpc
           run: |
             DEFAULT_VPC_ID=$(aws ec2 describe-vpcs --query 'Vpcs[0].VpcId' --output json | tr -d '"')
@@ -75,5 +75,5 @@ jobs:
             template: apps/binfinder/binfinder_cloudformation.yaml
             no-fail-on-empty-changeset: "1"
             parameter-overrides: >-
-                BinFinderKeyName=${{ github.event.inputs.keypairName}},
+                BinFinderKeyName=${{ github.event.inputs.keypairName }},
                 DefaultVPCId=${{ steps.binfinder-vpc.outputs.defaultVpcId }}
