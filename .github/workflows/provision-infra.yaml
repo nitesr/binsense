@@ -9,7 +9,7 @@ on:
             keypairName:
                 description: 'key pair name'
                 required: true
-                default: 'BinFinderKey'
+                default: 'BinFinderKeyAlt'
 jobs:
     provision-infra:
         name: Deploy stack to AWS
@@ -53,7 +53,7 @@ jobs:
           id: binfinder-keypair
           env:
             KEYPAIR_NAME: ${{ github.event.inputs.keypairName }}
-            PUB_KEY: ${{ vars.BINFINDER_RSA_PUB }}
+            PUB_KEY: ${{ vars.BINFINDER_ED25519_PUB }}
           run: |
             which aws
             echo "pub key is $PUB_KEY, keyPairname is $KEYPAIR_NAME"
