@@ -1,0 +1,25 @@
+stages:
+  download_data:
+    cmd: python -m binsense.cli.run_rawdata_downloader --num_workers=10
+    deps:
+      - libs/binsense/cli/run_rawdata_downloader.py
+      - libs/binsense/dataprep/config.py
+      - libs/binsense/dataprep/downloader.py
+      - libs/binsense/dataprep/metadata.py
+    outs:
+      - data/bin/s3/images
+      - data/bin/s3/metadata
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+      - data/bin/s3/downloader_mark.dat
+  extract_products:
+    cmd: python -m binsense.cli.run_extract_products
+    deps:
+      - libs/binsense/cli/run_extract_products.py
+      - libs/binsense/dataprep/config.py
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+    outs:
+      - data/bin/products.csv
+
+

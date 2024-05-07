@@ -46,7 +46,7 @@ jobs:
               env:
                 REPO: ${{ github.repository }}
               run: |
-                ENVIRONMENT=`echo $REPO | tr "/" "-"`
+                ENVIRONMENT=`echo $REPO | cut -d "/" -f 2`
                 echo "Environment name: $ENVIRONMENT"
                 echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
             

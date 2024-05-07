@@ -6,13 +6,19 @@ import os, re
 @dataclass
 class DataPrepConfig:
     
+    # raw data config
     raw_data_root_dir = cfg.BIN_S3_DOWNLOAD_DIR
-    data_split_images_dir = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'images')
-    data_split_labels_dir = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'metadata')
+    rawdata_images_dir = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'images')
+    rawdata_labels_dir = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'metadata')
+    rawdata_bin_csv_filepath = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'bins.csv')
+    rawdata_items_csv_filepath = os.path.join(cfg.BIN_S3_DOWNLOAD_DIR, 'items.csv')
     raw_data_img_extn = '.jpg'
     
-    data_split_filepath = os.path.join(cfg.BIN_DATA_DIR, 'train_test_val_split_item.csv')
+    # extract products config
     root_dir = cfg.BIN_DATA_DIR
+    products_csv_filepath = os.path.join(cfg.BIN_DATA_DIR, 'products.csv')
+    
+    data_split_filepath = os.path.join(cfg.BIN_DATA_DIR, 'train_test_val_split_item.csv')
     label_chkpt_filepath = os.path.join(cfg.BIN_DATA_DIR, 'pre-annotate_labels.cpt')
     bbox_chkpt_filepath = os.path.join(cfg.BIN_DATA_DIR, 'pre-annotate_bboxes.cpt')
     robo_upload_dir = os.path.join(cfg.BIN_DATA_DIR, 'robo_upload')

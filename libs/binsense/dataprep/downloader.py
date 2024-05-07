@@ -10,7 +10,9 @@ from tqdm import tqdm
 from importlib import resources
 from typing import Optional
 from concurrent import futures
-import boto3, os, time
+import boto3, os, logging
+
+logger = logging.getLogger(__name__)
 
 class BinS3DataDownloader:
     """
@@ -26,13 +28,13 @@ class BinS3DataDownloader:
         """
         creates necessary directories to download to.
         """
-        meta_dir = self.cfg.data_split_labels_dir
-        images_dir = self.cfg.data_split_images_dir
+        meta_dir = self.cfg.rawdata_labels_dir
+        images_dir = self.cfg.rawdata_images_dir
         if target_dir is not None and target_dir != self.cfg.raw_data_root_dir:
             meta_dir = os.path.join(
-                target_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
+                target_dir, os.path.split(self.cfg.rawdata_labels_dir)[1])
             images_dir = os.path.join(
-                target_dir, os.path.split(self.cfg.data_split_images_dir)[1])
+                target_dir, os.path.split(self.cfg.rawdata_images_dir)[1])
         os.makedirs(images_dir, exist_ok=True)
         os.makedirs(meta_dir, exist_ok=True)
         return images_dir, meta_dir
@@ -82,10 +84,15 @@ class BinS3DataDownloader:
             if not os.path.exists(meta_fpath):
                 with open(meta_fpath, 'wb') as f:
                     s3.download_fileobj(BIN_S3_BUCKET, f'metadata/{img_name}.json', f)
+
+        progress_step = len(image_names) // 10
+        progress_bar = tqdm(
+            total=len(image_names), 
+            desc="downloading bin data", file=open(os.devnull, 'w'))
                             
         future_tasks = []
         with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for image_name in tqdm(image_names, desc="downloading bin data"):
+            for image_name in image_names:
                 image_name = image_name.strip()
                 target_image_file = os.path.join(image_dir, f'{image_name}{self.cfg.raw_data_img_extn}')
                 target_metadata_file = os.path.join(meta_dir, f'{image_name}.json')
@@ -95,7 +102,15 @@ class BinS3DataDownloader:
                     img_name=image_name, 
                     img_fpath=target_image_file, 
                     meta_fpath=target_metadata_file))
-            futures.wait(future_tasks)
+            
+            logger.info(str(progress_bar))
+            for future_task in futures.as_completed(future_tasks):
+                progress_bar.update()
+                if progress_bar.n >= progress_step:
+                    progress_step += progress_bar.n
+                    logger.info(str(progress_bar))
+            logger.info(str(progress_bar))
+            
         self.dirty_marker.mark()
         return None
 

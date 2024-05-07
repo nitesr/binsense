@@ -1,0 +1,68 @@
+schema: '2.0'
+stages:
+  download_data:
+    cmd: python -m binsense.cli.run_rawdata_downloader --num_workers=10
+    deps:
+    - path: libs/binsense/cli/run_rawdata_downloader.py
+      hash: md5
+      md5: a48708235a8e4b0304fb174a2fdb2267
+      size: 1072
+    - path: libs/binsense/dataprep/config.py
+      hash: md5
+      md5: d0e9ec14d48b07bf97a4f1716cdd7c3a
+      size: 2916
+    - path: libs/binsense/dataprep/downloader.py
+      hash: md5
+      md5: 4458af72b0a2fd615c0a3802716dfee6
+      size: 4828
+    - path: libs/binsense/dataprep/metadata.py
+      hash: md5
+      md5: 6322555564a952d07c79324794e22c0e
+      size: 8832
+    outs:
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: e58c9a12911e802e513f18d77e9553d5
+      size: 160334
+    - path: data/bin/s3/downloader_mark.dat
+      hash: md5
+      md5: b6ace5b608aab916091382a07ea607ef
+      size: 10
+    - path: data/bin/s3/images
+      hash: md5
+      md5: b2d5b563d1a18c89545a00fe82da29fc.dir
+      size: 267582252
+      nfiles: 3875
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 55b986d6e49869751840564bd2a8a06d
+      size: 1934482
+    - path: data/bin/s3/metadata
+      hash: md5
+      md5: 63b4bd975c4ba4b2afddd4f00547969f.dir
+      size: 7870101
+      nfiles: 3875
+  extract_products:
+    cmd: python -m binsense.cli.run_extract_products
+    deps:
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: e58c9a12911e802e513f18d77e9553d5
+      size: 160334
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 55b986d6e49869751840564bd2a8a06d
+      size: 1934482
+    - path: libs/binsense/cli/run_extract_products.py
+      hash: md5
+      md5: f7ec51f578ccd269708caac045d3907b
+      size: 973
+    - path: libs/binsense/dataprep/config.py
+      hash: md5
+      md5: d0e9ec14d48b07bf97a4f1716cdd7c3a
+      size: 2916
+    outs:
+    - path: data/bin/products.csv
+      hash: md5
+      md5: 70b855ead23e15019a87c2f49a8959eb
+      size: 501670

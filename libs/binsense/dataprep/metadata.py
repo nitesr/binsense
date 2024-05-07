@@ -21,8 +21,8 @@ class BinMetadataLoader:
     
     def __init__(self, cfg: DataPrepConfig = None) -> None:
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
-        self.bin_csv_fname = 'bins.csv'
-        self.item_csv_name = 'items.csv'
+        self.bin_csv_fname = os.path.split(self.cfg.rawdata_bin_csv_filepath)[1]
+        self.item_csv_name = os.path.split(self.cfg.rawdata_items_csv_filepath)[1]
     
     def _dump_to_csv(self, img_dir: str, ann_dir: str, max_workers:int = 1):
         
@@ -127,10 +127,10 @@ class BinMetadataLoader:
                     logger.info(str(load_progress_bar))
             logger.info(str(load_progress_bar))
             
-            logger.info("writing csv files")
             parentdir, _ = os.path.split(ann_dir)
             bin_csv_path = os.path.join(parentdir, self.bin_csv_fname)
             items_csv_path = os.path.join(parentdir, self.item_csv_name)
+            logger.info(f"writing csv files, bin_csv_path={bin_csv_path}, items_csv_path={items_csv_path}")
             with open(bin_csv_path, 'w') as f:
                 f.writelines([f'{v}\n' for v in bin_csv_values])
             with open(items_csv_path, 'w') as f:
@@ -151,14 +151,14 @@ class BinMetadataLoader:
                 'item_width_unit', 'item_height', 'item_height_unit', \
                 'item_weight', 'item_weight_unit']
         """
-        ann_dir = self.cfg.data_split_labels_dir
-        img_dir = self.cfg.data_split_images_dir
+        ann_dir = self.cfg.rawdata_labels_dir
+        img_dir = self.cfg.rawdata_images_dir
         
         if source_dir is not None and source_dir != self.cfg.raw_data_root_dir:
             ann_dir = os.path.join(
-                source_dir, os.path.split(self.cfg.data_split_labels_dir)[1])
+                source_dir, os.path.split(self.cfg.rawdata_labels_dir)[1])
             img_dir = os.path.join(
-                source_dir, os.path.split(self.cfg.data_split_images_dir)[1])
+                source_dir, os.path.split(self.cfg.rawdata_images_dir)[1])
         
         if source_dir is None:
             source_dir = self.cfg.raw_data_root_dir
@@ -167,7 +167,7 @@ class BinMetadataLoader:
         items_csv_path = os.path.join(source_dir, self.item_csv_name)
         if not os.path.exists(bin_csv_path) \
             or not os.path.exists(items_csv_path):
-            logger.info('generating csv files for caching')
+            logger.info('generating csv files')
             self._dump_to_csv(img_dir, ann_dir, max_workers)
         
         logger.info('reading csv files')
