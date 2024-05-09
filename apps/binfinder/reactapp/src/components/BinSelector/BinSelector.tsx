@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import useLocalStorageState from 'use-local-storage-state'
 import defaultImage from '../../assets/select_bin.png'
 import classes from './binselector.module.scss'
-import { CartProps, Product } from '../Products/Products'
+import { CartProps } from '../Products/Products'
+import { Product } from '../Products/ProductCard'
 
 // TODO: move all the logic to a logic component
 
 export type Item = {
     product: Product
     status: string
+    quantity: number
 }
 
 interface BasketItem {
@@ -36,7 +38,7 @@ interface FulfilResult {
 }
 
 export const BinSelector: FunctionComponent = () => {
-    const [imageURL, setImageURL] = useLocalStorageState<string>('bin_image')
+    const [imageURL, setImageURL] = useLocalStorageState<string>(defaultImage)
     const [imageBase64, setImageBase64] = useLocalStorageState<string>('bin_imagebase64');
     const [results, setResults] = useLocalStorageState<Item[]>('results');
     const [cart] = useLocalStorageState<CartProps>('cart', {})
@@ -99,7 +101,8 @@ export const BinSelector: FunctionComponent = () => {
                 const items: Item[] = result.status.map(itemStatus => {
                     return {
                       status: itemStatus.status,
-                      product: definedCart[itemStatus.basket_item.prod_id]
+                      product: definedCart[itemStatus.basket_item.prod_id].product,
+                      quantity: definedCart[itemStatus.basket_item.prod_id].quantity
                     };
                 });
                 setResults(items)

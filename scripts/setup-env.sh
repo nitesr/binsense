@@ -68,24 +68,29 @@ fi
 echo "project dir: $projDir"
 echo "virtual environment: $envName"
 echo "Python version: $pythonVer"
+echo "CREATE_ENV: $CREATE_ENV"
+echo "CLEAN_ENV: $CLEAN_ENV"
+
 conda init
 envAvailable=$( conda env list | grep $envName | wc -l )
 if [ $envAvailable -eq 1 ] && [ $CLEAN_ENV -eq 1 ]; then
     echo "deleting $envName conda environment"
     conda deactivate
-    conda env remove -n $envName
+    conda env remove -n $envName -y
 fi
 
 envAvailable=$(conda env list | grep $envName | wc -l)
 if [ $envAvailable -eq 0 ] && [ $CREATE_ENV -eq 1 ]; then
     echo "creating conda environment"
-    conda env create -f $condaFilePath
+    conda env create -f $condaFilePath -y
     if [ $? -eq 0 ]; then
         envAvailable=1
     fi
 fi
 
 if [ $envAvailable -eq 1 ]; then
+    echo "creating $envName environment"
+    conda init
     conda activate $envName
     # conda activate $envDir
     if [ $? -eq 0 ]; then

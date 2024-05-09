@@ -50,7 +50,7 @@ For API, we will define docker file to setup the environment.
 ```
 ./scripts/setup-env.sh --help
 ./scripts/setup-env.sh
-conda activate binsense_condaenv
+conda init && conda activate binsense_condaenv
 ```
 
 ## AWS EC2 setup
@@ -211,7 +211,7 @@ yarn --cwd apps/binfinder/reactapp build
 
 docker build -t binfinder:latest -f ./apps/binfinder/Dockerfile .
 DOCKER_IMG_ID=$(docker images | grep "binfinder" | xargs echo $1 | cut -d ' ' -f 3)
-docker run -p 8080:8080 -ti $DOCKER_IMG_ID
+docker run --name binfinder -v ./data:/data -p 8080:8080 -ti $DOCKER_IMG_ID
 ```
 
 

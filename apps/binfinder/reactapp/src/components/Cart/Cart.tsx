@@ -45,7 +45,6 @@ export const Cart: FunctionComponent = () => {
     navigate('/checkout')
   }
 
-
   const getProducts = () => Object.values(cart || {})
 
   return (
@@ -53,13 +52,13 @@ export const Cart: FunctionComponent = () => {
       <h1>Cart</h1>
 
       <div className={classes.container}>
-        {getProducts().map(product => (
-          <div className={classes.product} key={product.id}>
-            <img src={product.image ? product.image : productIcon} alt={product.name} />
-            <h3>{product.name}</h3>
+        {getProducts().map(item => (
+          <div className={classes.product} key={item.product.id}>
+            <img src={item.product.image ? item.product.image : productIcon} alt={item.product.name} />
+            <h3>{item.product.name}</h3>
             <Quantifier
-              removeProductCallback={() => handleRemoveProduct(product.id)}
-              productId={product.id}
+              removeProductCallback={() => handleRemoveProduct(item.product.id)}
+              productId={item.product.id}
               handleUpdateQuantity={handleUpdateQuantity} />
           </div>
         ))}

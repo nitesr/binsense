@@ -4,10 +4,11 @@ import useLocalStorageState from 'use-local-storage-state'
 import { Item } from '../BinSelector/BinSelector.tsx'
 import productIcon from '../../assets/product_icon.jpeg'
 import classes from './review.module.scss'
+import defaultImage from '../../assets/select_bin.png'
 
 export const Review: FunctionComponent = () => {
   const [results] = useLocalStorageState<Item[]>('results')
-  // const [imageURL, setImageURL] = useLocalStorageState<string>('bin_image')
+  const [imageURL] = useLocalStorageState<string>(defaultImage)
 
   const getResults = () => Object.values(results || [])
 
@@ -16,11 +17,15 @@ export const Review: FunctionComponent = () => {
       <h1>Results</h1>
 
       <div className={classes.container}>
+        <div className={classes.bin}>
+            <img src={imageURL} alt="Image"/>
+        </div>
+
         {getResults().map(result => (
           <div className={classes.product} key={result.product.id}>
             <img src={result.product.image ? result.product.image : productIcon} alt={result.product.name} />
             <h3>{result.product.name}</h3>
-            <h3>{result.product.quantity}</h3>
+            <h3>{result.quantity}</h3>
             <h3>{result.status}</h3>
           </div>
         ))}

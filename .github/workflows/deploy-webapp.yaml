@@ -88,6 +88,8 @@ jobs:
                     sudo yum update -y
                     sudo yum install docker -y
                     sudo yum install awscli -y
+                    # sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1 -o ~/dvc-3.50.1-1.x86_64.rpm
+                    # sudo yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
                     sudo service docker start
                     sudo usermod -a -G docker ec2-user
                     sudo aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY
@@ -97,7 +99,9 @@ jobs:
                     docker stop binfinder || true
                     docker rm binfinder || true
                     docker pull $REGISTRY/$REPOSITORY:$IMAGE_TAG
-                    docker run -d --name binfinder -p 80:8080 $REGISTRY/$REPOSITORY:$IMAGE_TAG
+                    [ ! -d "~/bindfinder/data/bin" ] || mkdir -p ~/binfinder/data/bin
+                    dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin
+                    docker run -v ~/binfinder/data:/data -d --name binfinder -p 80:8080 $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
 
                 
