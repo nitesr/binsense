@@ -88,7 +88,8 @@ jobs:
                     sudo yum update -y
                     sudo yum install docker -y
                     sudo yum install awscli -y
-                    sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1 -o ~/dvc-3.50.1-1.x86_64.rpm
+                    sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1
+                    sudo mv dvc-3.50.1 ~/dvc-3.50.1-1.x86_64.rpm
                     sudo yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
                     sudo service docker start
                     sudo usermod -a -G docker ec2-user
