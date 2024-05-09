@@ -82,6 +82,7 @@ jobs:
                     sudo systemctl start docker.service
                     sudo systemctl status docker.service --no-pager
                     docker version
+                    # sudo dnf install -y amazon-ecr-credential-helper
                     # install dvc
                     sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1
                     sudo mv dvc-3.50.1 ~/dvc-3.50.1-1.x86_64.rpm
@@ -123,14 +124,13 @@ jobs:
                     sudo aws --profile default configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
                     sudo aws --profile default configure set AWS_DEFAULT_REGION $AWS_DEFAULT_REGION
                     sudo aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY
-                    # sudo dnf install -y amazon-ecr-credential-helper
                     # echo "{\"credHelpers\":{\"public.ecr.aws\": \"ecr-login\",\"$REGISTRY\": \"ecr-login\"}}" | sudo tee '/root/.docker/config.json' > '/dev/null'
                     docker image prune -a -f
                     docker stop binfinder || true
                     docker rm binfinder || true
                     docker pull $REGISTRY/$REPOSITORY:$IMAGE_TAG
                     [ ! -d "~/bindfinder/data/bin" ] || mkdir -p ~/binfinder/data/bin
-                    dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin
+                    dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin/products.csv
                     docker run -v ~/binfinder/data:/data -d --name binfinder -p 80:8080 $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
 

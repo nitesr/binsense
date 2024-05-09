@@ -54,6 +54,7 @@ class BasketItemFulfilStatus(BaseModel):
     status: FulfilStatus
 
 class FulfilResult(BaseModel):
+    bin_image: str
     status: List[BasketItemFulfilStatus]
 
 app = FastAPI()
