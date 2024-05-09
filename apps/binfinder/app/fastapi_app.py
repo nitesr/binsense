@@ -105,7 +105,7 @@ def checkout(req: FulfilRequest):
         f = req.bin_image
         img = base64.b64decode(f)
 
-        fr = FulfilResult(bin_image=None, status=[])
+        fr = FulfilResult(bin_image=req.bin_image, status=[])
         for item in req.basket.items:
             fr.status.append(BasketItemFulfilStatus(basket_item=item, status=FulfilStatus.FULL))
         return fr
