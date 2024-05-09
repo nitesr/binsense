@@ -92,7 +92,9 @@ jobs:
                     # sudo yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
                     sudo service docker start
                     sudo usermod -a -G docker ec2-user
-                    echo "$AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_DEFAULT_REGION"
+                    sudo aws --profile default configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                    sudo aws --profile default configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                    sudo aws --profile default configure set AWS_DEFAULT_REGION $AWS_DEFAULT_REGION
                     sudo aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY
                     # sudo dnf install -y amazon-ecr-credential-helper
                     # echo "{\"credHelpers\":{\"public.ecr.aws\": \"ecr-login\",\"$REGISTRY\": \"ecr-login\"}}" | sudo tee '/root/.docker/config.json' > '/dev/null'
