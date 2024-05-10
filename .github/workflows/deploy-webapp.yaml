@@ -54,40 +54,6 @@ jobs:
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v2
             
-            - name: Init EC2 instance
-              id: init-ec2
-              env:
-                REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-                AWS_DEFAULT_REGION: 'us-east-1'
-                AWS_REGION: 'us-east-1'
-                PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_ED25519_KEY }}
-                AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              uses: appleboy/ssh-action@master
-              with:
-                host: ${{ github.event.inputs.publicDnsName }}
-                username: ${{ github.event.inputs.ec2User }}
-                key: ${{ secrets.BINFINDER_ED25519_KEY }}
-                envs: PRIVATE_SSH_KEY,REGISTRY,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
-                script: |
-                    sudo yum update -y
-                    sudo yum install awscli -y
-                    # install docker
-                    sudo yum install docker -y
-                    sudo usermod -a -G docker ec2-user
-                    id ec2-user
-                    newgrp docker
-                    sudo systemctl enable docker.service
-                    # sudo chmod 666 /var/run/docker.sock
-                    sudo systemctl start docker.service
-                    sudo systemctl status docker.service --no-pager
-                    docker version
-                    # sudo dnf install -y amazon-ecr-credential-helper
-                    # install dvc
-                    sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1
-                    sudo mv dvc-3.50.1 ~/dvc-3.50.1-1.x86_64.rpm
-                    sudo yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
-            
             - name: Build and Push Docker Image
               id: buil-push-dockerimage
               env:

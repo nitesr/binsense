@@ -10,6 +10,10 @@ on:
                 description: 'key pair name'
                 required: true
                 default: 'BinFinderKeyAlt'
+            ec2User:
+                description: 'ec2 host user'
+                required: true
+                default: 'ec2-user'
 jobs:
     provision-infra:
         name: Deploy stack to AWS
@@ -80,3 +84,47 @@ jobs:
             parameter-overrides: >-
                 BinFinderKeyName=${{ github.event.inputs.keypairName }},
                 DefaultVPCId=${{ steps.binfinder-vpc.outputs.defaultVpcId }}
+        
+        - name: Get EC2 Public Host
+          id: get-ec2-dns
+          env:
+            STACK_NAME: ${{ steps.env-name.outputs.environment }}-stack
+          run: |
+            EC2_PUBLIC_HOST=$(aws cloudformation --region us-east-1 describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[0].OutputValue" --output text)
+            echo "EC2_PUBLIC_HOST=$EC2_PUBLIC_HOST"
+            echo "ec2PublicDnsName=$EC2_PUBLIC_HOST" >> $GITHUB_OUTPUT
+        
+        # - name: Initialize EC2
+        #   id: init-ec2
+        #   env:
+        #     REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        #     AWS_DEFAULT_REGION: 'us-east-1'
+        #     AWS_REGION: 'us-east-1'
+        #     PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_ED25519_KEY }}
+        #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        #   uses: appleboy/ssh-action@master
+        #   with:
+        #     host: ${{ steps.get-ec2-dns.outputs.ec2PublicDnsName }}
+        #     username: ${{ github.event.inputs.ec2User }}
+        #     key: ${{ secrets.BINFINDER_ED25519_KEY }}
+        #     envs: PRIVATE_SSH_KEY,REGISTRY,AWS_DEFAULT_REGION,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+        #     script: |
+        #         sudo yum update -y
+        #         sudo yum install awscli -y
+        #         # install docker
+        #         sudo yum install docker -y
+        #         sudo usermod -a -G docker ec2-user
+        #         id ec2-user
+        #         newgrp docker
+        #         sudo systemctl enable docker.service
+        #         # sudo chmod 666 /var/run/docker.sock
+        #         sudo systemctl start docker.service
+        #         sudo systemctl status docker.service --no-pager
+        #         docker version
+        #         # sudo dnf install -y amazon-ecr-credential-helper
+        #         # install dvc
+        #         sudo wget https://dvc.org/download/linux-rpm/dvc-3.50.1
+        #         sudo mv dvc-3.50.1 ~/dvc-3.50.1-1.x86_64.rpm
+        #         sudo yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
+      

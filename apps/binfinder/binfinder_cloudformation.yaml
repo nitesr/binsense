@@ -35,6 +35,25 @@ Resources:
           Ebs:
             DeleteOnTermination: true
             VolumeSize: 30
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          # Pre-Bootstrap Configuration
+          yum update -y
+          yum install awscli -y
+          # install docker
+          yum install docker -y
+          usermod -a -G docker ec2-user
+          id ec2-user
+          newgrp docker
+          systemctl enable docker.service
+          systemctl start docker.service
+          systemctl status docker.service --no-pager
+          docker version
+          # install dvc
+          wget https://dvc.org/download/linux-rpm/dvc-3.50.1
+          mv dvc-3.50.1 ~/dvc-3.50.1-1.x86_64.rpm
+          yum localinstall ~/dvc-3.50.1-1.x86_64.rpm -y
 
   # our EC2 security group
   BinFinderSSHSecurityGroup:
