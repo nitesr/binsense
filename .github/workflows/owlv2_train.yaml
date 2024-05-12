@@ -1,4 +1,4 @@
-name: Run Experiment
+name: Run OWLv2 Experiment
 on:
     push:
         branches:
