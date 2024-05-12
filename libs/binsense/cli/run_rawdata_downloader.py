@@ -1,6 +1,7 @@
 from ..dataprep.metadata import BinMetadataLoader
 from ..dataprep.downloader import BinS3DataDownloader
 from ..dataprep.config import DataPrepConfig
+from ..utils import load_params, get_default_on_none
 
 import logging, os, argparse, sys
 
@@ -14,6 +15,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s : %(message)s')
     parser = argparse.ArgumentParser()
     cfg = DataPrepConfig()
+    params = load_params('./params.yaml')
 
     parser.add_argument(
         "--force", help="donot consider the cache, download from the s3",
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     download(
         cfg=cfg, 
         force_download=args.force, 
-        num_workers=args.num_workers
+        num_workers=get_default_on_none(args.num_workers, params.data_download.num_workers)
     )
     
     sys.exit(0)

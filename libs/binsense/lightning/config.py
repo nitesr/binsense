@@ -26,7 +26,7 @@ class Config:
     use_focal_loss: bool = True
     focal_loss_alpha: float = 0.3
     focal_loss_gamma: float = 2.0
-    match_cost_label: float = 0
+    match_cost_label: float = 1
     match_cost_bbox: float = 1
     match_cost_giou: float = 1
     iou_threshold: float = 0.98

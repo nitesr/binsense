@@ -1,5 +1,6 @@
 from .utils import FileIterator, backup_file
 from .img_utils import convert_xy_cxy_and_unscale
+from .img_utils import corner_to_centers
 
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from enum import Enum
 from tqdm import tqdm
 
 import numpy as np
-import json, os, shutil, yaml, re, logging
+import json, os, shutil, yaml, logging, cv2
 
 from typing import List, Dict, Tuple, Union, Any, Callable
 
@@ -68,6 +69,12 @@ class Dataset:
     
     def get_labels(self, img_name: str) -> List[LabelData]:
         pass
+
+    def get_all_labels(self) -> List[LabelData]:
+        pass
+
+    def get_all_images(self) -> List[ImageData]:
+        pass
     
     def to_file(self, file_path: str, format: str = None, exclude_tags: List[DataTag] = []) -> None:
         pass
@@ -85,7 +92,18 @@ class DatasetBuilder:
     """
     def __init__(self) -> None:
         pass
-    
+
+    def image_exists(self, img_path: str, tag: DataTag = DataTag.TRAIN) -> bool:
+        """
+        should check if the image exists in the dataset
+
+        Args:
+            img_path (`str`): complete file path to the image.
+            tag(`str`): train/test/valid tag. default is train
+        Returns:
+            exists (`bool`):
+        """
+        pass
     def add_image(self, img_path: str, tag: DataTag = DataTag.TRAIN) -> int:
         """
         should add the image to the dataset
@@ -179,6 +197,12 @@ class YoloDataset(Dataset):
             filtered_labels.append(self.categories[bbox.label])
         return filtered_labels
     
+    def get_all_labels(self) -> List[LabelData]:
+        return [v for _, v in self.categories.items()]
+    
+    def get_all_images(self) -> List[ImageData]:
+        return [v for _, v in self.images.items()]
+    
     def to_file(self, file_path: str, format: str = 'yolov8', exclude_tags: List[DataTag] = []) -> None:
         if format == 'yolov8':
             Yolov8Serializer(self).to_file(file_path, exclude_tags)
@@ -243,9 +267,10 @@ class Yolov8Deserializer(YoloDeserializer):
     def _interpret_ann_line(self, line: str, img_id: int) -> None:
         tokens = [ t.strip() for t in line.split()]
         label_id = tokens[0]
+
         self.builder.add_bbox(
             img_id, int(label_id),
-            np.array([np.float32(tokens[1]), float(tokens[2]), float(tokens[3]), float(tokens[4])])
+            np.array([np.float32(t) for t in tokens[1:]])
         )
         
     def _read_ann_file(self, img_id: int, ann_path: str) -> None:
@@ -277,6 +302,10 @@ class Yolov8Deserializer(YoloDeserializer):
             if img_name is None or len(img_name) == 0:
                 logger.error(f'extracted image name({img_name}) is empty for {imgfile_name}')
                 continue
+            if self.builder.image_exists(img_path, tag, img_name):
+                logger.error(f'duplicate image name({img_name}) with path({img_path})')
+                continue
+
             img_id = self.builder.add_image(img_path, tag, img_name)
             
             lbl_path = os.path.join(ds_dir, 'labels', f'{name}.txt')
@@ -360,8 +389,7 @@ class YoloSerializer:
                 f.write(' '.join([str(x) \
                     for x in [ 
                             bbox._label_id, 
-                            bbox.center_x, bbox.center_y, 
-                            bbox.width, bbox.height
+                            *(bbox.to_array() if bbox.segmentation is None else bbox.segmentation[0].flatten())
                     ]
                 ]))
                 f.write('\n')
@@ -469,6 +497,11 @@ class YoloDatasetBuilder(DatasetBuilder):
         self.images = dict()
         self.bboxes = dict()
     
+    def image_exists(self, img_path: str, tag: DataTag = DataTag.TRAIN, img_name: str = None) -> bool:
+        if img_name is None:
+            img_name = img_name = Path(img_path).name
+        return img_name in self.images.keys()
+
     def add_image(self, img_path: str, tag: DataTag = DataTag.TRAIN, img_name: str = None) -> int:
         if img_name is None:
             img_name = img_name = Path(img_path).name
@@ -511,16 +544,45 @@ class YoloDatasetBuilder(DatasetBuilder):
                 if cat_data.id == category_id:
                     return name
             return None
+
+        def _get_image_name(img_id: str) -> str:
+            for name, img_data in self.images.items():
+                if img_data.id == img_id:
+                    return name
+            return None
         
-        self.bboxes[img_id].append(BoundingBox(**{
-            'label': _get_label(category_id),
-            '_label_id': category_id,
-            '_img_id': img_id,
-            'center_x': bbox[0],
-            'center_y': bbox[1],
-            'width': bbox[2],
-            'height': bbox[3]
-        }))
+        if len(bbox) > 4:
+            if not len(bbox) % 2 == 0:
+                raise ValueError(f'segmentation coords len({len(bbox)}) not even, img_id={_get_image_name(img_id)}, label={_get_label(category_id)}')
+            coords = bbox.reshape(len(bbox)//2, 2)
+            box_xy = np.array([np.min(coords[:,0]), np.min(coords[:,1]), np.max(coords[:,0]), np.max(coords[:,1])])
+            box_cxy = corner_to_centers(box_xy)
+            # bounding box
+            bbox_data = BoundingBox(**{
+                'label': _get_label(category_id),
+                '_label_id': category_id,
+                '_img_id': img_id,
+                'center_x': box_cxy[0],
+                'center_y': box_cxy[1],
+                'width': box_cxy[2],
+                'height': box_cxy[3],
+                'area': cv2.contourArea(coords),
+                'segmentation': [coords]
+            })
+        else:
+            # bounding box
+            bbox_data = BoundingBox(**{
+                'label': _get_label(category_id),
+                '_label_id': category_id,
+                '_img_id': img_id,
+                'center_x': bbox[0],
+                'center_y': bbox[1],
+                'width': bbox[2],
+                'height': bbox[3],
+                'area': bbox[2] * bbox[3]
+            })
+
+        self.bboxes[img_id].append(bbox_data)
         
     def add_bboxes(self, img_id: int, category_ids: List[int], bboxes: np.ndarray = None):
         for i, bbox in enumerate(bboxes):
@@ -528,6 +590,60 @@ class YoloDatasetBuilder(DatasetBuilder):
     
     def build(self) -> YoloDataset:
         return YoloDataset(self.images, self.categories, self.bboxes)
+
+class YoloDatasetCopier:
+    def __init__(
+            self, 
+            src_ds: Dataset, 
+            categories: List[str] = None, 
+            img_tag_pairs: Dict[str, DataTag] = None) -> None:
+        self.src_ds = src_ds
+        self.dst_categories = self._to_dst_categories(src_ds) if categories is None else categories
+        self.img_tag_pairs = img_tag_pairs
+    
+    def _to_dst_categories(self, src_ds: Dataset) -> List[str]:
+        return [lbl_data.name for lbl_data in src_ds.get_all_labels()]
+    
+    def _copy_image_bboxes(
+        self, 
+        dst_ds: DatasetBuilder, 
+        src_img_data: ImageData,
+        dst_category_dict: Dict[str, int]) -> int:
+        
+        dst_tag = src_img_data.tag if self.img_tag_pairs is None else DataTag(self.img_tag_pairs[src_img_data.name])
+        dst_img_id = dst_ds.add_image(
+            src_img_data.path, dst_tag, 
+            src_img_data.name)
+        bboxes = self.src_ds.get_bboxes(src_img_data.name)
+        src_cat_names = [bbox.label for bbox in bboxes]
+        src_bbox_arrays = [ bbox.to_array() if bbox.segmentation is None else bbox.segmentation[0].flatten() for bbox in bboxes]
+        dst_cat_ids = [dst_category_dict[name] for name in src_cat_names]
+        dst_ds.add_bboxes(dst_img_id, dst_cat_ids, src_bbox_arrays)
+        return dst_img_id
+    
+    def copy(self) -> Dataset:
+        dst_dsbuild = YoloDatasetBuilder()
+        dst_category_dict = dst_dsbuild.add_categories(set(self.dst_categories))
+        for img_data in self.src_ds.get_all_images():
+            if self.img_tag_pairs is None or img_data.name in self.img_tag_pairs:
+                self._copy_image_bboxes(
+                    dst_ds=dst_dsbuild,
+                    src_img_data=img_data,
+                    dst_category_dict=dst_category_dict
+                )
+            else:
+                logger.warn(f"filtering out {img_data.name} while copying to dst_ds")
+        
+        dst_ds = dst_dsbuild.build()
+        def get_ds_count(split_tag: DataTag):
+            return len(dst_ds.get_images(split_tag))
+        train_cnt = get_ds_count(DataTag.TRAIN)
+        val_cnt = get_ds_count(DataTag.VALID)
+        test_cnt = get_ds_count(DataTag.TEST)
+        total_cnt =  train_cnt +  val_cnt + test_cnt
+        logger.info(f'copied dataset train_ratio={round(train_cnt/total_cnt, 2)} valid_ratio={round(val_cnt/total_cnt, 2)} test_ratio={round(test_cnt/total_cnt, 2)}')
+
+        return dst_ds
 
 # -- refactor below code to meet the interfaces ----------------
 

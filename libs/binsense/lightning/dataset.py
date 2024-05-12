@@ -29,7 +29,8 @@ class InImageQueryDatasetBuilder:
         target_fpath: str = None,
         data_dir: str = None,
         embed_ds: EmbeddingDatastore = None,
-        cfg: DataPrepConfig = None) -> None:
+        cfg: DataPrepConfig = None,
+        manual_seed: int = None) -> None:
         
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
         self.data_dir = get_default_on_none(data_dir, self.cfg.filtered_dataset_path)
@@ -39,6 +40,7 @@ class InImageQueryDatasetBuilder:
                 dir_path=self.cfg.embed_store_dirpath, read_only=True
             ))
         self.pos_neg_ratio=self.cfg.inimage_queries_pos_neg_ratio
+        self.manual_seed = manual_seed
     
     def _load_queries(self, ds: BinsenseDataset) -> List[str]:
         query_labels = set()
@@ -57,6 +59,14 @@ class InImageQueryDatasetBuilder:
         df = pd.DataFrame(columns=[
             'image_relpath', 'bbox_label', 'count', 'tag'
         ])
+
+        df_dict = {
+            'image_relpath': [],
+            'bbox_label': [],
+            'count': [],
+            'tag': []
+        }
+
         def read_ds(tag: DataTag):
             imgs_data = ds.get_images(tag)
             for img_data in imgs_data:
@@ -65,11 +75,15 @@ class InImageQueryDatasetBuilder:
                 for l, c in Counter(bbox_labels).items():
                     _, dir_name = os.path.split(self.data_dir)
                     img_rel_path = os.path.join(dir_name, tag.value, 'images', img_data.name)
-                    df.loc[len(df)] = [img_rel_path, l, c, tag.value]
+                    df_dict['image_relpath'].append(img_rel_path)
+                    df_dict['bbox_label'].append(l)
+                    df_dict['count'].append(c)
+                    df_dict['tag'].append(tag.value)
         
         read_ds(DataTag.TRAIN)
         read_ds(DataTag.VALID)
         read_ds(DataTag.TEST)
+        df = pd.DataFrame.from_dict(df_dict)
         return df
     
     def _prepare_queries(self, query_labels: List, data_df: pd.DataFrame) -> pd.DataFrame:
@@ -128,7 +142,7 @@ class InImageQueryDatasetBuilder:
         num_neg_queries_del = num_neg_queries - num_neg_queries_req
         logger.info(f"discarding. num_neg_queries_del={num_neg_queries_del}, num_neg_queries_req={num_neg_queries_req}")
         
-        neg_queries_del_idx = neg_queries.sample(num_neg_queries_del).index
+        neg_queries_del_idx = neg_queries.sample(num_neg_queries_del, random_state=self.manual_seed).index
         if inplace:
             queries_df.drop(neg_queries_del_idx, inplace=inplace, axis=0)
             queries_df.reset_index(drop=True, inplace=inplace)
@@ -147,20 +161,26 @@ class InImageQueryDatasetBuilder:
         
         # TODO: check if label_path is passed instead ?
         #   and pass the dataset reader to the TorchDataset
-        queries_df['bbox_coords'] = ''
-        for i in queries_df.query('count > 0 & tag in ["train", "valid"]').index:
+        queries_df['q_bbox_coords'] = ''
+        queries_df['all_bbox_coords'] = ''
+        queries_df['all_bbox_count'] = 0
+
+        for i in queries_df.index:
             img_rel_path = queries_df.loc[i, 'image_relpath']
             _, img_name = os.path.split(img_rel_path)
             query_label =  queries_df.loc[i, 'query_label']
-            bboxes = []
-            for bbox in ds.get_bboxes(img_name=img_name):
-                if bbox.label != query_label:
-                    continue
-                bboxes.extend([str(v) for v in bbox.to_array()])
-            queries_df.loc[i, 'bbox_coords'] = ' '.join(bboxes)
-            
-        text_index = queries_df.query('count > 0 & tag == "test"').index
-        queries_df.loc[text_index, 'bbox_coords'] = ''
+
+            if queries_df.loc[i, 'count'] > 0:
+                q_bboxes = []
+                for bbox in ds.get_bboxes(img_name=img_name):
+                    if bbox.label != query_label:
+                        continue
+                    q_bboxes.extend([str(v) for v in bbox.to_array()])
+                queries_df.loc[i, 'q_bbox_coords'] = ' '.join(q_bboxes)
+
+            all_bboxes = np.array([bbox.to_array() for bbox in ds.get_bboxes(img_name=img_name)]).flatten()
+            queries_df.loc[i, 'all_bbox_count'] = len(all_bboxes) // 4
+            queries_df.loc[i, 'all_bbox_coords'] = ' '.join([str(v) for v in all_bboxes])
         
         self._balance_the_dataset(queries_df)
         self._log_stats(queries_df)
@@ -242,12 +262,15 @@ class _Dataset(TorchDataset):
         
         # targets
         count = tutls.to_int_tensor(item['count'])
-        bbox_coords = self._format_bbox_coords(count, item['bbox_coords'])
+        all_count = tutls.to_int_tensor(item['all_bbox_count'])
+        q_bbox_coords = self._format_bbox_coords(count, item['q_bbox_coords'])
+        all_bbox_coords = self._format_bbox_coords(all_count, item['all_bbox_coords'])
         labels = tutls.to_int_tensor([0] * count) if count > 0 else tutls.empty_int_tensor()
         target = {
             "count": count,
             "labels": labels,
-            "boxes": bbox_coords
+            "q_boxes": q_bbox_coords,
+            "boxes": all_bbox_coords
         }
         
         if self.transform:
@@ -262,6 +285,7 @@ def _collate_fn(batch):
     
     count_tensors = []
     boxes_tensors = []
+    qboxes_tensors = []
     labels_tensors = []
     for (input, target) in batch:
         image_tensors.append(input['image'])
@@ -271,6 +295,7 @@ def _collate_fn(batch):
         count_tensors.append(target['count'])
         labels_tensors.append(target['labels'])
         boxes_tensors.append(target['boxes'])
+        qboxes_tensors.append(target['q_boxes'])
     
     inputs = {
         "image": torch.stack(image_tensors, dim=0),
@@ -281,7 +306,8 @@ def _collate_fn(batch):
     targets = {
         "count": count_tensors,
         "labels": labels_tensors,
-        "boxes": boxes_tensors
+        "boxes": boxes_tensors,
+        "q_boxes": qboxes_tensors
     }
     return (inputs, targets)
     

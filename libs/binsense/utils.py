@@ -1,8 +1,16 @@
 from typing import Any, Optional, List, TypeVar, Union, Callable
 from pathlib import Path
+from box import ConfigBox
 import os, shutil, re, time
+import yaml
 
 T = TypeVar("T")
+
+def load_params(params_file: str) -> ConfigBox:
+    with open(params_file, "r") as f:
+        params = yaml.safe_load(f)
+        params = ConfigBox(params)
+    return params
 
 class DirtyMarker:
     def __init__(self, name: str, root_dir: str) -> None:

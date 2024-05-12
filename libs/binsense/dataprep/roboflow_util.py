@@ -3,7 +3,7 @@ from ..dataset_util import Yolov8Deserializer, \
     ImageData, DataTag, Dataset, YoloDatasetBuilder, DatasetBuilder
 from .config import DataPrepConfig
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from re import Pattern
 from roboflow import Roboflow
 from tqdm import tqdm
@@ -196,7 +196,8 @@ class RoboflowDatasetCopier:
         crawler_filepath: str,
         dataset_dirpath: str,
         dataset_format: str = "yolov8",
-        cfg: DataPrepConfig = None) -> None:
+        cfg: DataPrepConfig = None,
+        use_crawler: bool = True) -> None:
         """
         Args:
             target_dirpath(`str`): dir path to where the filtered dataset need to be stored
@@ -206,10 +207,10 @@ class RoboflowDatasetCopier:
         """
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
         self.target_dirpath = get_default_on_none(target_dirpath, self.cfg.filtered_dataset_path)
-        self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path)
+        self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path) if use_crawler else None
         self.dataset_dirpath = get_default_on_none(dataset_dirpath, self.cfg.dataset_download_path)
         
-        if not self._validate_exists(self.crawler_filepath, True):
+        if use_crawler and not self._validate_exists(self.crawler_filepath, True):
             raise ValueError(f'{crawler_filepath} doesn\'t exist or is not a file.')
         
         if not self._validate_exists(self.dataset_dirpath, False):
@@ -373,18 +374,20 @@ class RoboflowDatasetValidator:
         crawler_filepath: str,
         dataset_dirpath: str,
         dataset_format: str = "yolov8",
-        cfg: DataPrepConfig = None) -> None:
+        cfg: DataPrepConfig = None,
+        validate_crawled_dataset: bool = True) -> None:
         """
         Args:
             crawler_filepath(`str`): file path of RoboflowCrawler output
             dataset_dirpath(`str`): dir path of RoboflowDownloader output
             dataset_format(`str`): format of the downloaded dataset by RoboflowDownloader
         """
+        self.validate_crawled_dataset = get_default_on_none(validate_crawled_dataset, True)
         self.cfg = get_default_on_none(cfg, DataPrepConfig())
         self.crawler_filepath = get_default_on_none(crawler_filepath, self.cfg.rfmeta_file_path)
         self.dataset_dirpath = get_default_on_none(dataset_dirpath, self.cfg.dataset_download_path)
         
-        if not self._validate_exists(self.crawler_filepath, True):
+        if self.validate_crawled_dataset and not self._validate_exists(self.crawler_filepath, True):
             raise ValueError(f'{crawler_filepath} doesn\'t exist or is not a file.')
         
         if not self._validate_exists(self.dataset_dirpath, False):
@@ -424,26 +427,31 @@ class RoboflowDatasetValidator:
             raise ValueError(f'mandatory columns [image_name, bbox_label, bbox_count] missing in crawl dataset')
     
     def _load_downloaded_dataset(self):
-        ds = self.dataset_reader.read()
-        df = pd.DataFrame(columns=['image_name', 'bbox_label', 'bbox_count', 'tag'])
+        source_ds = self.dataset_reader.read()
+        source_ds_dict = {
+            'image_name': [],
+            'tag': [],
+            'bbox_label': [],
+            'bbox_count': []
+        }
+        for img_data in source_ds.get_all_images():
+            bbox_label_counts = {}
+            for bbox_data in source_ds.get_bboxes(img_data.name):
+                if not bbox_data.label in bbox_label_counts:
+                    bbox_label_counts[bbox_data.label] = 1
+                else:
+                    bbox_label_counts[bbox_data.label] += 1
+            n = len(bbox_label_counts)
+            source_ds_dict['image_name'].extend([img_data.name] * n)
+            source_ds_dict['tag'].extend([img_data.tag.value] * n)
+            for bbox_label, bbox_count in bbox_label_counts.items():
+                source_ds_dict['bbox_label'].append(bbox_label)
+                source_ds_dict['bbox_count'].append(bbox_count)
         
-        def _read_ds(ds_tag):
-            for img_data in ds.get_images(ds_tag):
-                image_name = img_data.name
-                bbox_label_counts = {}
-                for bbox_data in ds.get_bboxes(image_name):
-                    if not bbox_data.label in bbox_label_counts:
-                        bbox_label_counts[bbox_data.label] = 1
-                    else:
-                        bbox_label_counts[bbox_data.label] += 1
-                for bbox_label, bbox_count in bbox_label_counts.items():
-                    df.loc[len(df)] = [image_name, bbox_label, bbox_count, str(img_data.tag)]
-        
-        _read_ds(DataTag.TRAIN)
-        _read_ds(DataTag.VALID)
-        return df
+        downloaded_df = pd.DataFrame.from_dict(source_ds_dict)
+        return downloaded_df
     
-    def validate(self, full_dataset: pd.DataFrame) -> bool:
+    def validate(self, full_dataset: pd.DataFrame) -> Tuple[bool, Tuple[str, bool]]:
         """
         Args:
             full_dataset(`pandas.DataFrame`):
@@ -460,23 +468,27 @@ class RoboflowDatasetValidator:
             results(`List[Tuple(str, bool)]`): list of check & true/false tuples
         """
         self._validate_full_dataset(full_dataset)
-        self._validate_crawl_dataset(self.crawler_filepath)
-        
         rfds_df = self._load_downloaded_dataset()
-        rf_df = pd.read_csv(self.crawler_filepath, 
-                    dtype={'image_name': str, 'bbox_label': str})
         full_df = full_dataset
         
         results = [
-            ('rfmeta: not_empty', self.check_not_empty(rf_df)),
-            ('rfmeta: image_count', self.check_image_count(rf_df, full_df)),
-            ('rfmeta: label_count', self.check_label_phantom(rf_df, full_df)),
-            ('rfmeta: bbox_count', self.check_bbox_count(rf_df, full_df)),
-            ('rfds: not_empty', self.check_not_empty(rf_df)),
+            ('rfds: not_empty', self.check_not_empty(rfds_df)),
             ('rfds: image_count', self.check_image_count(rfds_df, full_df)),
             ('rfds: label_count', self.check_label_phantom(rfds_df, full_df)),
             ('rfds: bbox_count', self.check_bbox_count(rfds_df, full_df))
         ]
+
+        if self.validate_crawled_dataset:
+            self._validate_crawl_dataset(self.crawler_filepath)
+            rf_df = pd.read_csv(self.crawler_filepath, 
+                    dtype={'image_name': str, 'bbox_label': str})
+            results.extend([
+                ('rfmeta: not_empty', self.check_not_empty(rf_df)),
+                ('rfmeta: image_count', self.check_image_count(rf_df, full_df)),
+                ('rfmeta: label_count', self.check_label_phantom(rf_df, full_df)),
+                ('rfmeta: bbox_count', self.check_bbox_count(rf_df, full_df))
+            ])
+
         valid = all([t[1] for t in results])
         return valid, results
     

@@ -1,11 +1,13 @@
 stages:
   download_data:
-    cmd: python -m binsense.cli.run_rawdata_downloader --num_workers=10
+    cmd: python -m binsense.cli.run_rawdata_downloader
     deps:
       - libs/binsense/cli/run_rawdata_downloader.py
       - libs/binsense/dataprep/config.py
       - libs/binsense/dataprep/downloader.py
       - libs/binsense/dataprep/metadata.py
+    params:
+      - data_download
     outs:
       - data/bin/s3/images
       - data/bin/s3/metadata
@@ -21,5 +23,98 @@ stages:
       - data/bin/s3/items.csv
     outs:
       - data/bin/products.csv
+
+  owl_handpick_data_split:
+    cmd: python -m binsense.cli.owlv2.run_handpick_predataprep1
+    params:
+      - data_split
+    deps:
+      - libs/binsense/cli/owlv2/run_handpick_predataprep1.py
+      - data/bin/handpicked_bins.txt
+      - data/bin/s3/images
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+    outs:
+      - data/bin/train_test_val_split_item.csv
+      - data/bin/handpick_train_test_dist.png
+      - data/bin/handpick_train_test_samples.png
+  owl_handpick_data_preannotate:
+    cmd: python -m binsense.cli.owlv2.run_handpick_predataprep2 --device=$TORCH_DEVICE --annotate --create_dataset --upload_dataset
+    params:
+      - preannotate
+    deps:
+      - libs/binsense/cli/owlv2/run_handpick_predataprep2.py
+      - libs/binsense/dataprep/preannotate.py
+      - data/bin/train_test_val_split_item.csv
+      - data/bin/s3/images
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+    outs:
+      - data/bin/data_for_annotators.csv
+      - data/bin/robo_upload
+      - data/bin/sample_preannotated_images.png
+
+  owl_handpick_data_download:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep1 --download --api_key=$BINSEG_ROBOFLOW_API_KEY
+    params:
+      - binseg_roboflow
+    deps:
+      - libs/binsense/cli/owlv2/run_handpick_dataprep1.py
+      - data/bin/handpick_annotation_available.txt
+    outs:
+      - data/bin/sample_gt_annotation_images.png
+      - data/bin/robo_download
+  owl_handpick_data_prepare:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep2 --validate --copy
+    deps:
+      - libs/binsense/cli/owlv2/run_handpick_dataprep2.py
+      - data/bin/robo_download
+      - data/bin/train_test_val_split_item.csv
+      - data/bin/train_test_val_split_item_corrections.csv
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+    outs:
+      - data/bin/downloaded_data_valid_results.txt
+      - data/bin/filtered_dataset
+  owl_handpick_data_genembeds:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep3 --generate_embeds --accelerator=$TORCH_DEVICE
+    params:
+      - generate_embeds
+    deps:
+      - libs/binsense/cli/owlv2/run_handpick_dataprep3.py
+      - libs/binsense/dataprep/embedding_util.py
+      - data/bin/filtered_dataset
+    outs:
+      - data/bin/sample_crops_images.png
+      - data/bin/embed_store
+  owl_train_dataprep:
+    cmd: python -m binsense.cli.owlv2.train --build_dataset
+    params:
+      - train
+    deps:
+      - libs/binsense/cli/owlv2/train.py
+      - libs/binsense/lightning/dataset.py
+      - data/bin/filtered_dataset
+      - data/bin/embed_store
+    outs:
+      - data/bin/inimage_queries.csv
+      - data/bin/train_dataset_stats.txt
+  owl_test_baseline:
+    cmd: python -m binsense.cli.owlv2.train --test --experiment_version=testbaseline --accelerator=$TORCH_DEVICE
+    params:
+      - train
+    deps:
+      - libs/binsense/cli/owlv2/train.py
+      - libs/binsense/lightning/config.py
+      - data/bin/filtered_dataset
+      - data/bin/inimage_queries.csv
+      - data/bin/embed_store
+    outs:
+      - data/bin/testresults_testbaseline.csv
+
+  
+
+
+  
 
 

@@ -1,8 +1,13 @@
+from .img_utils import create_polygon_mask
+
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from typing import List, Tuple, Any, Union, Optional
+
+from PIL.Image import Image as PILImage
+
 import numpy as np
-import cv2 as cv
+import cv2
 
 
 # draws the bounding boxes on the cv image
@@ -33,7 +38,7 @@ def plot_bboxes(
     label_txts = []
     for i, bbox in enumerate(bboxes):
         bbox = [int(k) for k in bbox]
-        draw_img = cv.rectangle(draw_img, bbox[:2], bbox[2:], (0,0,255), 2)
+        draw_img = cv2.rectangle(draw_img, bbox[:2], bbox[2:], (0,0,255), 2)
         if labels and labels[i]:
             label_txts.append((bbox[0], bbox[1], labels[i]))
     
@@ -160,3 +165,5 @@ def show_bbox_ingrid(
     if title:
         fig.suptitle(title)
     plt.show()
+
+

@@ -34,11 +34,12 @@ class LitImageEmbedder(L.LightningModule):
         self.model = model
         self.embed_ds = embed_ds
         self.bbox_labels = bbox_labels
-    
+
     def predict_step(self, batch):
         idx = batch[0]
-        x = batch[1]
-        _, embeddings = self.model(x)
+        bbox = batch[1]
+        x = batch[2]
+        _, embeddings = self.model(x, bbox)
         return (idx, embeddings)
     
     def on_predict_batch_end(self, outputs: Any | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:

@@ -49,14 +49,14 @@ class Owlv2ImageEmbedder(ImageEmbedder):
     def processor(self) -> ImageProcessor:
         return self._processor
 
-    def forward(self, bboxes: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, images: torch.Tensor, query_boxes: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         
         # try with 
         #   highest IOU with actual image size
         #   normalized over pre-processed image size.
         #   i.e. (0, 0, im_w/960, im_h/960)
-        vit_embeddings = self.model.image_embedder(bboxes)[0] # B x C x 960 x 960 -> B x 3600 x 768
-        bbox_embeddings = self.model.embed_image_query(vit_embeddings)[0]
+        vit_embeddings = self.model.image_embedder(images)[0] # B x C x 960 x 960 -> B x 3600 x 768
+        bbox_embeddings = self.model.embed_image_query(vit_embeddings, query_boxes)[0]
         
         # class_embeddings = self.model.class_predictor(vit_embeddings)[1] # B x 3600 x 768 -> B x 3600 x 512
         # object_logits = self.model.objectness_predictor(vit_embeddings) # B x 3600 x 768 -> B x 3600

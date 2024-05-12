@@ -1,0 +1,35 @@
+base:
+  manual_seed: 1234
+
+data_download:
+  num_workers: 10
+
+data_split:
+  manual_seed: 91634
+
+preannotate:
+  batch_size: 8
+  dl_workers: 10
+
+generate_embeds:
+  batch_size: 8
+  dl_workers: 10
+  bbox_labels_estimate: 2000
+
+binseg_roboflow:
+  workspace: nitesh-c-eszzc
+  project: binsense_segments_100
+  dataver: 3
+
+train:
+  pos_neg_dataset_ratio: 99
+  manual_seed: 1234
+  batch_size: 8
+  profiler: simple
+  dl_workers: 10
+  min_epochs: 1
+  max_epochs: 30
+
+
+
+
