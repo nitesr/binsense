@@ -8,9 +8,9 @@ on:
           - "libs/**"
           - "params.yaml"
           - "dvc.*"
-    pull_request:
-        branches:
-          - "main"
+    # pull_request:
+    #     branches:
+    #       - "main"
     
 jobs:
     deploy-runner:
