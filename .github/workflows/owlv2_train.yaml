@@ -1,13 +1,17 @@
 name: Run Experiment
 on:
-  push:
-    branches:    
-      - 'exp*'
-    paths:
-      - "data/**"
-      - "libs/**"
-      - "params.yaml"
-      - "dvc.*"
+    push:
+        branches:
+          - 'exp/**'
+        paths:
+          - "data/**"
+          - "libs/**"
+          - "params.yaml"
+          - "dvc.*"
+    pull_request:
+        branches:
+          - "main"
+    
 jobs:
     deploy-runner:
         runs-on: ubuntu-latest
