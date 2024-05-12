@@ -105,8 +105,10 @@ jobs:
                 apt-get update
                 apt-get install cron
 
+                #current directory
+                pwd
+
                 # upload logs to s3
-                crontab -l > mycron
                 echo "* * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1" >> mycron
                 crontab mycron
                 rm mycron
