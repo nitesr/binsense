@@ -21,15 +21,15 @@ jobs:
             id-token: write
             pull-requests: write
         steps:
-            - uses: navikt/github-app-token-generator@v1
-              id: get-token
-              with:
-                private-key: ${{ secrets.CML_GITHUB_APP_PEM }}
-                app-id: ${{ secrets.CML_GITHUB_APP_ID }}
+            # - uses: navikt/github-app-token-generator@v1
+            #   id: get-token
+            #   with:
+            #     private-key: ${{ secrets.CML_GITHUB_APP_PEM }}
+            #     app-id: ${{ secrets.CML_GITHUB_APP_ID }}
 
             - uses: actions/checkout@v4
               with:
-                token: ${{ steps.get-token.outputs.token }}
+                ref: ${{ github.event.pull_request.head.sha }}
 
             - uses: iterative/setup-cml@v1
 
@@ -43,7 +43,7 @@ jobs:
 
             - name: cml runner
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GITHUB_PERSONAL_TOKEN }}
                 AWS_REGION: 'us-east-1'
               run: |
                 cml runner \
@@ -70,8 +70,8 @@ jobs:
                 app-id: ${{ secrets.CML_GITHUB_APP_ID }}
 
             - uses: actions/checkout@v4
-              with:
-                token: ${{ steps.get-token.outputs.token }}
+            #   with:
+            #     token: ${{ steps.get-token.outputs.token }}
 
             - uses: actions/setup-python@v2
               with:
@@ -88,11 +88,11 @@ jobs:
             - name: cml setup
               run: cml ci
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GITHUB_PERSONAL_TOKEN }}
             
             - name: dvc-repro-cml
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GITHUB_PERSONAL_TOKEN }}
                 TORCH_DEVICE: 'cuda'
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
