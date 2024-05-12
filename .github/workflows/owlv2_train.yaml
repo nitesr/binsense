@@ -8,9 +8,9 @@ on:
           - "libs/**"
           - "params.yaml"
           - "dvc.*"
-    pull_request:
-        branches:
-          - "main"
+    # pull_request:
+    #     branches:
+    #       - "main"
     
 jobs:
     deploy-runner:
@@ -140,10 +140,10 @@ jobs:
                 cml-publish data/bin/sample_gt_annotation_images.png --md >> report.md
 
                 echo "### downloaded dataset sanity checks after annotation" >> report.md
-                cml-publish data/bin/downloaded_data_valid_results.txt --md >> report.md
+                cat data/bin/downloaded_data_valid_results.txt >> report.md
 
                 echo "### train dataset stats before training" >> report.md
-                cml-publish  data/bin/train_dataset_stats.txt --md >> report.md
+                cat data/bin/train_dataset_stats.txt >> report.md
                 
                 #########################
 
