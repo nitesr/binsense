@@ -75,8 +75,8 @@ stages:
     deps:
     - path: data/bin/handpicked_bins.txt
       hash: md5
-      md5: e5a48824c05aed05c651a3ff211568a4
-      size: 614
+      md5: 26d8a3c66acfd8740fd8b95a06e8ec74
+      size: 621
     - path: data/bin/s3/bins.csv
       hash: md5
       md5: 03880bbb676f68cb5975641c70f4c55f
@@ -105,8 +105,8 @@ stages:
       size: 31647
     - path: data/bin/handpick_train_test_samples.png
       hash: md5
-      md5: a4af17541e7a6882ae817464e80aa160
-      size: 328553
+      md5: e228a387b868ffcc9b9fdf89e9cf7c49
+      size: 373274
     - path: data/bin/train_test_val_split_item.csv
       hash: md5
       md5: 4e51934f24451b35901c034829618be6

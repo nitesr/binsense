@@ -1,0 +1,5 @@
+outs:
+- md5: 26d8a3c66acfd8740fd8b95a06e8ec74
+  size: 621
+  hash: md5
+  path: handpicked_bins.txt
