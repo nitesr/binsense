@@ -1,32 +1,5 @@
 name: Run Experiment
 on:
-  workflow_dispatch:
-    inputs:
-        region:
-            description: 'AWS Region'
-            required: true
-            default: 'us-east-1'
-        preannotate_batch_size:
-            description: 'preannotation batch size'
-            required: true
-            default: '8'
-        torch_device:
-            description: 'pytorch device'
-            required: true
-            default: 'cuda'
-        binseg_rf_workspace:
-            description: 'binsense segments roboflow workspace'
-            required: true
-            default: 'nitesh-c-eszzc'
-        binseg_rf_project:
-            description: 'binsense segments roboflow project'
-            required: true
-            default: 'binsense_segments_100'
-        binseg_rf_dataver:
-            description: 'binsense segments roboflow dataset version'
-            required: true
-            default: '3'
-
   push:
     branches:    
       - 'exp*'
@@ -62,12 +35,12 @@ jobs:
               with:
                 aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                 aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                aws-region: ${{ github.event.inputs.region}}
+                aws-region: 'us-east-1'
 
             - name: cml runner
               env:
                 REPO_TOKEN: ${{ steps.get-token.outputs.token }}
-                AWS_REGION: ${{ github.event.inputs.region}}
+                AWS_REGION: 'us-east-1'
               run: |
                 cml runner \
                     --cloud=aws \
