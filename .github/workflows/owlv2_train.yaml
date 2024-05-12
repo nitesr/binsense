@@ -88,10 +88,10 @@ jobs:
                 aws-region: 'us-east-1'
             
             - name: cml setup
-              run: cml ci
               env:
                 REPO_TOKEN: ${{ steps.get-token.outputs.token }}
                 # REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+              run: cml ci
             
             - name: dvc-repro-cml
               env:
@@ -102,11 +102,12 @@ jobs:
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
               run: |
+                apt-get update
                 apt-get install cron
 
                 # upload logs to s3
                 crontab -l > mycron
-                echo "*/5 * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1" >> mycron
+                echo "* * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1" >> mycron
                 crontab mycron
                 rm mycron
 
