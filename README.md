@@ -25,8 +25,10 @@ Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQ
 - VScode (code editor)
 - Juypter
 - git
-- git-lfs
+- git-cli (gh)
 - aws-cli
+- dvc
+- bash
 
 ## Languages
 - Python
