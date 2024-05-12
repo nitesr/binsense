@@ -22,7 +22,7 @@ binseg_roboflow:
   dataver: 3
 
 train:
-  pos_neg_dataset_ratio: 99
+  pos_neg_dataset_ratio: 98
   manual_seed: 1234
   batch_size: 8
   profiler: simple
