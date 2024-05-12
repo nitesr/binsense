@@ -6,6 +6,7 @@ stages:
       - libs/binsense/dataprep/config.py
       - libs/binsense/dataprep/downloader.py
       - libs/binsense/dataprep/metadata.py
+      - libs/binsense/resources/ik_data_index.csv
     params:
       - data_download
     outs:
@@ -87,6 +88,16 @@ stages:
     outs:
       - data/bin/sample_crops_images.png
       - data/bin/embed_store
+  owl_extract_embeddedproducts:
+    cmd: python -m binsense.cli.owlv2.run_extract_embedded_products
+    deps:
+      - libs/binsense/cli/owlv2/run_extract_embedded_products.py
+      - libs/binsense/dataprep/config.py
+      - data/bin/s3/bins.csv
+      - data/bin/s3/items.csv
+      - data/bin/embed_store
+    outs:
+      - data/bin/embedded_products.csv
   owl_train_dataprep:
     cmd: python -m binsense.cli.owlv2.train --build_dataset
     params:

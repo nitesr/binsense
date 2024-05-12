@@ -1,0 +1,17 @@
+/downloaded_data_valid_results.txt
+/filtered_dataset
+/sample_crops_images.png
+/embed_store
+/inimage_queries.csv
+/train_dataset_stats.txt
+/testresults_testbaseline.csv
+/products.csv
+/train_test_val_split_item.csv
+/handpick_train_test_dist.png
+/handpick_train_test_samples.png
+/data_for_annotators.csv
+/robo_upload
+/sample_preannotated_images.png
+/sample_gt_annotation_images.png
+/robo_download
+/embedded_products.csv

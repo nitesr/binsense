@@ -75,6 +75,8 @@ class SafeTensorEmbeddingReadOnlyDS(EmbeddingDatastore):
             tensors.update(ftensors)
         return tensors
     
+    def get_keys(self) -> Iterator:
+        return self.key_map.keys()
 
 class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
     def __init__(

@@ -167,6 +167,7 @@ _data/
 _models/
 _logs/
 _mount/
+*.bkp
 
 # dvc
 !*.dvc
@@ -177,3 +178,4 @@ lightning_logs
 # npm
 node_modules
 dist
+
