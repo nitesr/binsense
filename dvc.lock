@@ -271,16 +271,16 @@ stages:
       nfiles: 183
     - path: libs/binsense/cli/owlv2/train.py
       hash: md5
-      md5: b4f47f25fb0c044f541e45d00dcd103e
-      size: 11611
+      md5: 64ff2ca3dfe155fa14fbf1632cf08209
+      size: 11859
     - path: libs/binsense/lightning/dataset.py
       hash: md5
-      md5: 010cf175db54649e03dd34d760aee93d
-      size: 14257
+      md5: 23c8629da2cad887f30d7c6b4cd2cc64
+      size: 14447
     params:
       params.yaml:
         train:
-          pos_neg_dataset_ratio: 99
+          pos_neg_dataset_ratio: 98
           manual_seed: 1234
           batch_size: 8
           profiler: simple
@@ -290,9 +290,50 @@ stages:
     outs:
     - path: data/bin/inimage_queries.csv
       hash: md5
-      md5: a0a377da609533140efa0c2a6664cef4
+      md5: e505ce9fe93654cb8ed063602c80d038
       size: 71142
     - path: data/bin/train_dataset_stats.txt
       hash: md5
-      md5: 2ccb8e0ca90110aa16645f803deaf32c
+      md5: e26d23d7dbc6db3765ae18b5f3e4f2aa
       size: 1021
+  owl_test_baseline:
+    cmd: python -m binsense.cli.owlv2.train --test --experiment_version=testbaseline
+      --accelerator=$TORCH_DEVICE
+    deps:
+    - path: data/bin/embed_store
+      hash: md5
+      md5: 41abdcf3e401dc388dac740495655e03.dir
+      size: 182321
+      nfiles: 8
+    - path: data/bin/filtered_dataset
+      hash: md5
+      md5: e9eac410c3a29cdffeeb31f49d66efa6.dir
+      size: 2605489
+      nfiles: 183
+    - path: data/bin/inimage_queries.csv
+      hash: md5
+      md5: e505ce9fe93654cb8ed063602c80d038
+      size: 71142
+    - path: libs/binsense/cli/owlv2/train.py
+      hash: md5
+      md5: 64ff2ca3dfe155fa14fbf1632cf08209
+      size: 11859
+    - path: libs/binsense/lightning/config.py
+      hash: md5
+      md5: 1bb38406422b0a1f94a81a6d84c80ed2
+      size: 1728
+    params:
+      params.yaml:
+        train:
+          pos_neg_dataset_ratio: 98
+          manual_seed: 1234
+          batch_size: 8
+          profiler: simple
+          dl_workers: 10
+          min_epochs: 1
+          max_epochs: 30
+    outs:
+    - path: data/bin/testresults_testbaseline.csv
+      hash: md5
+      md5: 3fe039a7a6d56f6f549379cb8b53339b
+      size: 26137

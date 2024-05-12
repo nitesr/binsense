@@ -8,7 +8,7 @@ from ...lightning.config import Config as TrainConfig
 from ...lightning.dataset import InImageQueryDatasetBuilder, LitInImageQuerierDM
 from ...lightning.owlv2_model import OwlV2InImageQuerier
 from ...lightning.model import LitInImageQuerier
-from ...embed_datastore import EmbeddingDatastore, SafeTensorEmbeddingDatastore
+from ...embed_datastore import SafeTensorEmbeddingDatastore, EmbeddingDatastore
 from ...utils import get_default_on_none, load_params
 
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -28,7 +28,7 @@ class TransformFn:
     def __init__(self, embed_ds: EmbeddingDatastore) -> None:
         self.embed_ds = embed_ds
         self.processor = Owlv2ImageProcessor()
-
+        
     def transform(self, record):
         inputs, target = record
         orig_width, orig_height = inputs['image'].width, inputs['image'].height
@@ -44,11 +44,8 @@ class TransformFn:
             target['boxes'][:,1] = target['boxes'][:,1] * orig_height / max_length
         return inputs, target
 
-    def __call__(self, record) -> Any:
-        self.transform(record)
-
-def _get_transform_fn(embed_ds):
-    return TransformFn(embed_ds)
+    def __call__(self, record: Any) -> Any:
+        return self.transform(record)
 
 def print_dataset_stats(cfg: DataPrepConfig, csv_path: str) -> None:
     df = pd.read_csv(csv_path)[["query_label", "image_relpath", "count", "tag"]]
@@ -95,7 +92,7 @@ def build_dataset(pos_neg_ratio: float = None, manual_seed: int = None):
     dcfg = DataPrepConfig()
     dcfg.inimage_queries_pos_neg_ratio = get_default_on_none(pos_neg_ratio, dcfg.inimage_queries_pos_neg_ratio)
     dcfg.inimage_queries_csv = tcfg.data_csv_filepath
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
     csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg, manual_seed=manual_seed).build()
     print(f"dataset built @ {csv_path}")
 
@@ -122,6 +119,7 @@ def train(
     learning_rate: float= None, 
     num_workers: int = 0, 
     ckpt_fname: str = None,
+    manual_seed: int = None,
     **kwargs):
     
     print('kwargs: ', kwargs)
@@ -129,12 +127,14 @@ def train(
     print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
     data_module = LitInImageQuerierDM(
         data_dir=cfg.data_dirpath,
         csv_filepath=cfg.data_csv_filepath, 
         batch_size=batch_size, 
-        num_workers=num_workers, transform=_get_transform_fn(embed_ds))
+        num_workers=num_workers, 
+        transform=TransformFn(embed_ds),
+        random_state=manual_seed)
     
     model = _get_baseline_model()
     lmodel = LitInImageQuerier(model, cfg=cfg)
@@ -151,17 +151,20 @@ def test(
     num_workers: int = 0, 
     ckpt_fname: str = None,
     experiment_version: str = None,
+    manual_seed: int = None,
     **kwargs):
     cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, **kwargs)
     print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
     data_module = LitInImageQuerierDM(
         data_dir=cfg.data_dirpath,
         csv_filepath=cfg.data_csv_filepath, 
         batch_size=batch_size, 
-        num_workers=num_workers, transform=_get_transform_fn(embed_ds))
+        num_workers=num_workers, 
+        transform=TransformFn(embed_ds),
+        random_state=manual_seed)
     
     model = _get_baseline_model()
     lmodel = LitInImageQuerier(
@@ -275,6 +278,7 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
+            manual_seed=params.train.manual_seed,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,
@@ -296,6 +300,7 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
+            manual_seed=params.train.manual_seed,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,

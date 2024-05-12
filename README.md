@@ -228,7 +228,7 @@ python -m binsense.cli.owlv2.run_handpick_dataprep3 \
 --generate_embeds --accelerator=mps
 
 python -m binsense.cli.owlv2.train \
---build_dataset --pos_neg_dataset_ratio=99
+--build_dataset --pos_neg_dataset_ratio=98
 
 python -m binsense.cli.owlv2.train \
 --test --profiler=simple \

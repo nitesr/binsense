@@ -209,7 +209,6 @@ class _Dataset(TorchDataset):
         #     data_df = self._reorder_df(data_df, reorder_size)
         # self.data_df = data_df
         self.transform = transform
-        self.random_state = random_state
     
     def _reorder_df(self, df: pd.DataFrame, reorder_size: int) -> pd.DataFrame:
         """
@@ -313,19 +312,20 @@ def _collate_fn(batch):
     
 class LitInImageQuerierDM(L.LightningDataModule):
     def __init__(
-        self, data_dir, csv_filepath, batch_size = 8, num_workers=0, transform=None) -> None:
+        self, data_dir, csv_filepath, batch_size = 8, num_workers=0, transform=None, random_state=None) -> None:
         super().__init__()
         self.data_dir = data_dir
         self.csv_filepath = csv_filepath
         self.transform = transform
         self.batch_size = batch_size
         self.num_workers = num_workers
-    
+        self.random_state = random_state
+
     def setup(self, stage: str) -> None:
         self.data_df = pd.read_csv(self.csv_filepath, dtype={'bbox_coords': str})
-        self.train_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='train', transform=self.transform)
-        self.val_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='valid', transform=self.transform)
-        self.test_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='test', transform=self.transform)
+        self.train_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='train', transform=self.transform, random_state=self.random_state)
+        self.val_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='valid', transform=self.transform, random_state=self.random_state)
+        self.test_ds = _Dataset(data_dir=self.data_dir, df=self.data_df, tag='test', transform=self.transform, random_state=self.random_state)
         
         train_len = len(self.train_ds)
         val_len = len(self.val_ds)
@@ -343,14 +343,20 @@ class LitInImageQuerierDM(L.LightningDataModule):
             self.batch_size, 
             collate_fn=_collate_fn,
             num_workers=self.num_workers,
-            pin_memory=True,
+            pin_memory=False,
             shuffle=True)
     
     def val_dataloader(self) -> TorchDataLoader:
-        return TorchDataLoader(self.val_ds, self.batch_size, collate_fn=_collate_fn, num_workers=self.num_workers)
+        return TorchDataLoader(
+            self.val_ds, self.batch_size, 
+            collate_fn=_collate_fn, 
+            num_workers=self.num_workers)
     
     def test_dataloader(self) -> TorchDataLoader:
-        return TorchDataLoader(self.test_ds, self.batch_size, collate_fn=_collate_fn, num_workers=self.num_workers)
+        return TorchDataLoader(
+            self.test_ds, self.batch_size, 
+            collate_fn=_collate_fn, 
+            num_workers=self.num_workers)
     
     def teardown(self, stage: str) -> None:
         # nothing to teardown
