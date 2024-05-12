@@ -19,8 +19,6 @@ generate_embeds:
 binseg_roboflow:
   workspace: nitesh-c-eszzc
   project: binsense_segments_100
-  dataver: 3
-
 
 train:
   pos_neg_dataset_ratio: 98

@@ -128,22 +128,22 @@ jobs:
                 echo "## Validating outputs" >> report.md
                 
                 echo "### data split distributions" >> report.md
-                cml-publish data/bin/handpick_train_test_dist.png --md >> report.md
+                cml comment "![inline](./data/bin/handpick_train_test_dist.png) --md >> report.md
                 
                 echo "### data split samples" >> report.md
-                cml-publish data/bin/handpick_train_test_samples.png --md >> report.md
+                cml comment "![inline](./data/bin/handpick_train_test_samples.png) --md >> report.md
                 
                 echo "### pre-annotation samples for annotation task" >> report.md
-                cml-publish data/bin/sample_preannotated_images.png --md >> report.md
-
+                cml comment "![inline](./data/bin/sample_preannotated_images.png) --md >> report.md
+                
                 echo "### ground truth annotation samples after annotation" >> report.md
-                cml-publish data/bin/sample_gt_annotation_images.png --md >> report.md
+                cml comment "![inline](./data/bin/sample_gt_annotation_images.png) --md >> report.md
 
                 echo "### downloaded dataset sanity checks after annotation" >> report.md
-                cat data/bin/downloaded_data_valid_results.txt >> report.md
+                cat ./data/bin/downloaded_data_valid_results.txt >> report.md
 
                 echo "### train dataset stats before training" >> report.md
-                cat data/bin/train_dataset_stats.txt >> report.md
+                cat ./data/bin/train_dataset_stats.txt >> report.md
                 
                 #########################
 
