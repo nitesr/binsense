@@ -34,12 +34,14 @@ interface BasketItemFulfilStatus {
 }
 
 interface FulfilResult {
+    bin_image: string
     status: BasketItemFulfilStatus[]
 }
 
 export const BinSelector: FunctionComponent = () => {
     const [imageURL, setImageURL] = useLocalStorageState<string>(defaultImage)
     const [imageBase64, setImageBase64] = useLocalStorageState<string>('bin_imagebase64');
+    const [resultImageBase64, setResultImageBase64] = useLocalStorageState<string>(defaultImage);
     const [results, setResults] = useLocalStorageState<Item[]>('results');
     const [cart] = useLocalStorageState<CartProps>('cart', {})
     const navigate = useNavigate()
@@ -97,6 +99,9 @@ export const BinSelector: FunctionComponent = () => {
                 const responseData = await response.json();
                 const result = responseData as FulfilResult;
                 console.log('response from server:', result.status);
+
+                setResultImageBase64(result.bin_image)
+                console.log('result image: ', resultImageBase64)
 
                 const items: Item[] = result.status.map(itemStatus => {
                     return {

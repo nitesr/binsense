@@ -8,7 +8,7 @@ import defaultImage from '../../assets/select_bin.png'
 
 export const Review: FunctionComponent = () => {
   const [results] = useLocalStorageState<Item[]>('results')
-  const [imageURL] = useLocalStorageState<string>(defaultImage)
+  const [resultImageBase64] = useLocalStorageState<string>(defaultImage)
 
   const getResults = () => Object.values(results || [])
 
@@ -18,7 +18,7 @@ export const Review: FunctionComponent = () => {
 
       <div className={classes.container}>
         <div className={classes.bin}>
-            <img src={imageURL} alt="Image"/>
+            <img src={resultImageBase64} alt="Image"/>
         </div>
 
         {getResults().map(result => (
