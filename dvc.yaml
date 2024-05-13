@@ -78,7 +78,7 @@ stages:
       - data/bin/downloaded_data_valid_results.txt
       - data/bin/filtered_dataset
   owl_handpick_data_genembeds:
-    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep3 --generate_embeds --accelerator=$TORCH_DEVICE
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep3 --generate_embeds --accelerator=$LT_ACCELERATOR
     params:
       - generate_embeds
     deps:
@@ -111,7 +111,7 @@ stages:
       - data/bin/inimage_queries.csv
       - data/bin/train_dataset_stats.txt
   owl_test_baseline:
-    cmd: python -m binsense.cli.owlv2.train --test --experiment_version=testbaseline --accelerator=$TORCH_DEVICE
+    cmd: python -m binsense.cli.owlv2.train --test --experiment_version=testbaseline --accelerator=$LT_ACCELERATOR
     params:
       - train
     deps:
@@ -124,7 +124,7 @@ stages:
       - data/bin/testresults_testbaseline.csv
       - metrics/bin/test_confusion_matrix.png
   owl_train:
-    cmd: python -m binsense.cli.owlv2.train --train --experiment_version=$EXP_VER --accelerator=$TORCH_DEVICE
+    cmd: python -m binsense.cli.owlv2.train --train --experiment_version=$EXP_VER --accelerator=$LT_ACCELERATOR
     params:
       - train
     deps:
@@ -134,7 +134,8 @@ stages:
       - data/bin/inimage_queries.csv
       - data/bin/embed_store
     out:
-      - metrics/bin/last_losses_metrics.csv
+      - metrics/bin/train_last_losses_metrics.csv
+      - metrics/bin/val_last_losses_metrics.csv
       - metrics/bin/val_confusion_matrix.png
 
 
