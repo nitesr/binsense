@@ -235,6 +235,8 @@ python -m binsense.cli.owlv2.train \
 --experiment_version=test_baseline --batch_size=8 --num_workers=3 \
 --accelerator=mps
 
+
+
 ```
 
 ### Run web app

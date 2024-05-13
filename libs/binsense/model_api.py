@@ -65,14 +65,17 @@ class OwlImageQuerier(InBinQuerier):
         img = PIL.Image.fromarray(img_pixels)
         boxes_cxy=np.vstack(pred_boxes)
 
-        return annotate_image(
-            img, 
-            labels=None, 
-            bboxes_cxy=boxes_cxy, 
-            seg_coords=None, 
-            colors=[(0,255,255)]*len(boxes_cxy),
-            normalize=False,
-            convert_cxy_xy=False)
+        if len(boxes_cxy) > 0:
+            return annotate_image(
+                img, 
+                labels=None, 
+                bboxes_cxy=boxes_cxy, 
+                seg_coords=None, 
+                colors=[(0,255,255)]*len(boxes_cxy),
+                normalize=False,
+                convert_cxy_xy=False)
+        else:
+            return img
         
     def __call__(self, target_pixels: torch.Tensor, query_embeds: np.ndarray) -> np.array:
         if target_pixels.shape[0] != query_embeds.shape[0]:
