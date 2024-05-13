@@ -111,7 +111,6 @@ jobs:
 
                 #current directory
                 pwd
-                nvcc --version
                 nvidia-smi
 
                 # upload logs to s3
