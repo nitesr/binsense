@@ -1,0 +1,35 @@
+base:
+  manual_seed: 1234
+
+download_data:
+  num_workers: 10
+
+data_split:
+  manual_seed: 91634
+
+preannotate:
+  batch_size: 8
+  num_workers: 10
+
+genembeds:
+  batch_size: 8
+  num_workers: 10
+
+binseg_roboflow:
+  binseg_rf_workpsace: nitesh-c-eszzc
+  binseg_rf_project: binsense_segments_100
+  binseg_rf_dataver: 3
+
+train:
+  pos_neg_dataset_ratio: 99
+  manual_seed: 1234
+  batch_size: 8
+  profiler: simple
+  num_workers: 10
+
+test:
+  batch_size: 8
+  num_workers: 10
+
+
+

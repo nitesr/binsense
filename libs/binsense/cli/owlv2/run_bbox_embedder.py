@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--devices", help="num of devices available", default="auto")
     parser.add_argument(
-        "--accelerator", help="lightining accelerator e.g. cpu, gpu", default="auto", type=str)
+        "--accelerator", help="lightining accelerator e.g. cpu, gpu, mps", default="auto", type=str)
     parser.add_argument(
         "--strategy", help="lightining strategy e.g. ddp", default="auto", type=str)
     parser.add_argument(

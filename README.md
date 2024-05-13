@@ -25,8 +25,10 @@ Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQ
 - VScode (code editor)
 - Juypter
 - git
-- git-lfs
+- git-cli (gh)
 - aws-cli
+- dvc
+- bash
 
 ## Languages
 - Python
@@ -197,11 +199,42 @@ nohup python -m binsense.cli.owlv2.train --test --profiler=simple \
 ```
 
 
-
-
 ### Download checkpoint
 ```
 aws s3api get-object --bucket binsense --key _logs/bin/tb/lightning_logs/v8/checkpoints/epoch=4-step=715.ckpt ~/binsense/_data/bin/chkpts/v8_epoch4_best.ckpt --output json
+```
+
+### Run Owlv2 handpicked dataset
+```
+python -m binsense.cli.owlv2.run_handpick_predataprep1 \
+--num_workers=10 --manual_seed=91634
+
+python -m binsense.cli.owlv2.run_handpick_predataprep2 \
+--batch_size=8 --device=mps --annotate --create_dataset \
+--num_workers=10 --upload_dataset
+
+# upload the folder and annotate the segments in roboflow
+# grab the workspace, project, and dataset_version
+
+python -m binsense.cli.owlv2.run_handpick_dataprep1 \
+--download --workspace=nitesh-c-eszzc \
+--project=binsense_segments_100 --dataset_version=3 \
+--api_key=$ROBOFLOW_MY_API_KEY
+
+python -m binsense.cli.owlv2.run_handpick_dataprep2 \
+--num_workers=10 --validate --copy
+
+python -m binsense.cli.owlv2.run_handpick_dataprep3 \
+--generate_embeds --accelerator=mps
+
+python -m binsense.cli.owlv2.train \
+--build_dataset --pos_neg_dataset_ratio=98
+
+python -m binsense.cli.owlv2.train \
+--test --profiler=simple \
+--experiment_version=test_baseline --batch_size=8 --num_workers=3 \
+--accelerator=mps
+
 ```
 
 ### Run web app
@@ -211,6 +244,8 @@ yarn --cwd apps/binfinder/reactapp build
 
 docker build -t binfinder:latest -f ./apps/binfinder/Dockerfile .
 DOCKER_IMG_ID=$(docker images | grep "binfinder" | xargs echo $1 | cut -d ' ' -f 3)
+docker stop binfinder || true
+docker rm binfinder || true
 docker run --name binfinder -v ./data:/data -p 8080:8080 -ti $DOCKER_IMG_ID
 ```
 

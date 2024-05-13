@@ -15,12 +15,15 @@ class DataPrepConfig:
     raw_data_img_extn = '.jpg'
     
     # extract products config
+    logs_dir = os.path.join(cfg.LOGS_DIR, 'bin')
     root_dir = cfg.BIN_DATA_DIR
     products_csv_filepath = os.path.join(cfg.BIN_DATA_DIR, 'products.csv')
+    embedded_products_csv_filepath = os.path.join(cfg.BIN_DATA_DIR, 'embedded_products.csv')
     
     data_split_filepath = os.path.join(cfg.BIN_DATA_DIR, 'train_test_val_split_item.csv')
-    label_chkpt_filepath = os.path.join(cfg.BIN_DATA_DIR, 'pre-annotate_labels.cpt')
-    bbox_chkpt_filepath = os.path.join(cfg.BIN_DATA_DIR, 'pre-annotate_bboxes.cpt')
+    data_split_corrections_filepath = os.path.join(cfg.BIN_DATA_DIR, 'train_test_val_split_item_corrections.csv')
+    label_chkpt_filepath = os.path.join(os.path.join(cfg.LOGS_DIR, 'bin'), 'pre-annotate_labels.cpt')
+    bbox_chkpt_filepath = os.path.join(os.path.join(cfg.LOGS_DIR, 'bin'), 'pre-annotate_bboxes.cpt')
     robo_upload_dir = os.path.join(cfg.BIN_DATA_DIR, 'robo_upload')
     batch_size = 8
     dataset_class = BinDataset

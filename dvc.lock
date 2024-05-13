@@ -1,16 +1,16 @@
 schema: '2.0'
 stages:
   download_data:
-    cmd: python -m binsense.cli.run_rawdata_downloader --num_workers=10
+    cmd: python -m binsense.cli.run_rawdata_downloader
     deps:
     - path: libs/binsense/cli/run_rawdata_downloader.py
       hash: md5
-      md5: a48708235a8e4b0304fb174a2fdb2267
-      size: 1072
+      md5: 4ccf0e383f9e89f307c96d80b2374b2f
+      size: 1222
     - path: libs/binsense/dataprep/config.py
       hash: md5
-      md5: d0e9ec14d48b07bf97a4f1716cdd7c3a
-      size: 2916
+      md5: 9542da7c91ca5ae874485b0c93cd9e2e
+      size: 3206
     - path: libs/binsense/dataprep/downloader.py
       hash: md5
       md5: 4458af72b0a2fd615c0a3802716dfee6
@@ -19,14 +19,22 @@ stages:
       hash: md5
       md5: 6322555564a952d07c79324794e22c0e
       size: 8832
+    - path: libs/binsense/resources/ik_data_index.csv
+      hash: md5
+      md5: 461cd9f78f14ec5a16bcc0a4e1712cb9
+      size: 25399
+    params:
+      params.yaml:
+        data_download:
+          num_workers: 10
     outs:
     - path: data/bin/s3/bins.csv
       hash: md5
-      md5: e58c9a12911e802e513f18d77e9553d5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
       size: 160334
     - path: data/bin/s3/downloader_mark.dat
       hash: md5
-      md5: b6ace5b608aab916091382a07ea607ef
+      md5: 381f9ce94c0bd239f686028fc846d6ec
       size: 10
     - path: data/bin/s3/images
       hash: md5
@@ -35,7 +43,7 @@ stages:
       nfiles: 3875
     - path: data/bin/s3/items.csv
       hash: md5
-      md5: 55b986d6e49869751840564bd2a8a06d
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
       size: 1934482
     - path: data/bin/s3/metadata
       hash: md5
@@ -47,11 +55,11 @@ stages:
     deps:
     - path: data/bin/s3/bins.csv
       hash: md5
-      md5: e58c9a12911e802e513f18d77e9553d5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
       size: 160334
     - path: data/bin/s3/items.csv
       hash: md5
-      md5: 55b986d6e49869751840564bd2a8a06d
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
       size: 1934482
     - path: libs/binsense/cli/run_extract_products.py
       hash: md5
@@ -59,10 +67,306 @@ stages:
       size: 973
     - path: libs/binsense/dataprep/config.py
       hash: md5
-      md5: d0e9ec14d48b07bf97a4f1716cdd7c3a
-      size: 2916
+      md5: 9542da7c91ca5ae874485b0c93cd9e2e
+      size: 3206
     outs:
     - path: data/bin/products.csv
       hash: md5
       md5: 70b855ead23e15019a87c2f49a8959eb
       size: 501670
+  owl_handpick_data_split:
+    cmd: python -m binsense.cli.owlv2.run_handpick_predataprep1
+    deps:
+    - path: data/bin/handpicked_bins.txt
+      hash: md5
+      md5: 426bb7fb4a3a445a80a855a3cb553d66
+      size: 643
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
+      size: 160334
+    - path: data/bin/s3/images
+      hash: md5
+      md5: b2d5b563d1a18c89545a00fe82da29fc.dir
+      size: 267582252
+      nfiles: 3875
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
+      size: 1934482
+    - path: libs/binsense/cli/owlv2/run_handpick_predataprep1.py
+      hash: md5
+      md5: 6f4d70c5cfc983bc407b267e29a10d0c
+      size: 8916
+    params:
+      params.yaml:
+        data_split:
+          manual_seed: 91634
+    outs:
+    - path: data/bin/handpick_train_test_dist.png
+      hash: md5
+      md5: 72629fe094bf362f5020bc5027766ee6
+      size: 31329
+    - path: data/bin/handpick_train_test_samples.png
+      hash: md5
+      md5: fb47995f55f8d1e10183ebc562366a3c
+      size: 415367
+    - path: data/bin/train_test_val_split_item.csv
+      hash: md5
+      md5: b53c4eaa26003d51b35738e977b884a1
+      size: 5186
+  owl_handpick_data_preannotate:
+    cmd: python -m binsense.cli.owlv2.run_handpick_predataprep2 --device=$TORCH_DEVICE
+      --annotate --create_dataset --upload_dataset
+    deps:
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
+      size: 160334
+    - path: data/bin/s3/images
+      hash: md5
+      md5: b2d5b563d1a18c89545a00fe82da29fc.dir
+      size: 267582252
+      nfiles: 3875
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
+      size: 1934482
+    - path: data/bin/train_test_val_split_item.csv
+      hash: md5
+      md5: b53c4eaa26003d51b35738e977b884a1
+      size: 5186
+    - path: libs/binsense/cli/owlv2/run_handpick_predataprep2.py
+      hash: md5
+      md5: 40598dde9628dcff72ea6b35e5de7ea7
+      size: 3334
+    - path: libs/binsense/dataprep/preannotate.py
+      hash: md5
+      md5: 464b29115bfe5d80ab8eb8182260e007
+      size: 10688
+    params:
+      params.yaml:
+        preannotate:
+          batch_size: 8
+          dl_workers: 10
+    outs:
+    - path: data/bin/data_for_annotators.csv
+      hash: md5
+      md5: 1f8fca0794899da8296dd74d87912b11
+      size: 1831874
+    - path: data/bin/robo_upload
+      hash: md5
+      md5: 90a8dfa26de0262805aa81d9329dc6e5.dir
+      size: 6540431
+      nfiles: 189
+    - path: data/bin/sample_preannotated_images.png
+      hash: md5
+      md5: c255d62d309c935028e35b52b6be514a
+      size: 5524676
+  owl_handpick_data_download:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep1 --download --api_key=$BINSEG_ROBOFLOW_API_KEY
+    deps:
+    - path: data/bin/handpick_annotation_available.txt
+      hash: md5
+      md5: 0f65f8bf756e8e788316e1e6ff82d906
+      size: 123
+    - path: libs/binsense/cli/owlv2/run_handpick_dataprep1.py
+      hash: md5
+      md5: 52e289116be997bd84b987912dc2a111
+      size: 4144
+    params:
+      params.yaml:
+        binseg_roboflow:
+          workspace: nitesh-c-eszzc
+          project: binsense_segments_100
+          dataver: 3
+    outs:
+    - path: data/bin/robo_download
+      hash: md5
+      md5: ff2585fed24d4830eab8786d6b943a95.dir
+      size: 2563510
+      nfiles: 185
+    - path: data/bin/sample_gt_annotation_images.png
+      hash: md5
+      md5: e529835ca17ef9e91de85b685a992610
+      size: 664310
+  owl_handpick_data_prepare:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep2 --validate --copy
+    deps:
+    - path: data/bin/robo_download
+      hash: md5
+      md5: ff2585fed24d4830eab8786d6b943a95.dir
+      size: 2563510
+      nfiles: 185
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
+      size: 160334
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
+      size: 1934482
+    - path: data/bin/train_test_val_split_item.csv
+      hash: md5
+      md5: b53c4eaa26003d51b35738e977b884a1
+      size: 5186
+    - path: data/bin/train_test_val_split_item_corrections.csv
+      hash: md5
+      md5: 351796931cc9d975af69f413cd5243f1
+      size: 94
+    - path: libs/binsense/cli/owlv2/run_handpick_dataprep2.py
+      hash: md5
+      md5: 5da601c2fb68e346821094ef89b8d303
+      size: 6710
+    outs:
+    - path: data/bin/downloaded_data_valid_results.txt
+      hash: md5
+      md5: b451bd980a937a96f8802aa523d9a046
+      size: 123
+    - path: data/bin/filtered_dataset
+      hash: md5
+      md5: cba2fb97731b5326c1955243cb6cab4c.dir
+      size: 2605525
+      nfiles: 183
+  owl_handpick_data_genembeds:
+    cmd: python -m binsense.cli.owlv2.run_handpick_dataprep3 --generate_embeds --accelerator=$TORCH_DEVICE
+    deps:
+    - path: data/bin/filtered_dataset
+      hash: md5
+      md5: cba2fb97731b5326c1955243cb6cab4c.dir
+      size: 2605525
+      nfiles: 183
+    - path: libs/binsense/cli/owlv2/run_handpick_dataprep3.py
+      hash: md5
+      md5: 0d1aa059ba94ad7261ec6a3e3288ff3b
+      size: 3971
+    - path: libs/binsense/dataprep/embedding_util.py
+      hash: md5
+      md5: b90cbe1e952b7a1413158d97c4b21725
+      size: 5622
+    params:
+      params.yaml:
+        generate_embeds:
+          batch_size: 8
+          dl_workers: 10
+          bbox_labels_estimate: 2000
+    outs:
+    - path: data/bin/embed_store
+      hash: md5
+      md5: f8000ac84a2fdceaf540cfe6643d764f.dir
+      size: 182321
+      nfiles: 8
+    - path: data/bin/sample_crops_images.png
+      hash: md5
+      md5: d2043eb218907de4b21cb4f6243186c1
+      size: 130560
+  owl_train_dataprep:
+    cmd: python -m binsense.cli.owlv2.train --build_dataset
+    deps:
+    - path: data/bin/embed_store
+      hash: md5
+      md5: f8000ac84a2fdceaf540cfe6643d764f.dir
+      size: 182321
+      nfiles: 8
+    - path: data/bin/filtered_dataset
+      hash: md5
+      md5: cba2fb97731b5326c1955243cb6cab4c.dir
+      size: 2605525
+      nfiles: 183
+    - path: libs/binsense/cli/owlv2/train.py
+      hash: md5
+      md5: 64ff2ca3dfe155fa14fbf1632cf08209
+      size: 11859
+    - path: libs/binsense/lightning/dataset.py
+      hash: md5
+      md5: 23c8629da2cad887f30d7c6b4cd2cc64
+      size: 14447
+    params:
+      params.yaml:
+        train:
+          pos_neg_dataset_ratio: 98
+          manual_seed: 1234
+          batch_size: 8
+          profiler: simple
+          dl_workers: 10
+          min_epochs: 1
+          max_epochs: 30
+    outs:
+    - path: data/bin/inimage_queries.csv
+      hash: md5
+      md5: 9d5d2b2392e5b2e655215317d6202c3e
+      size: 70449
+    - path: data/bin/train_dataset_stats.txt
+      hash: md5
+      md5: b510bedd0f5078a9e6d61925633d933f
+      size: 1053
+  owl_test_baseline:
+    cmd: python -m binsense.cli.owlv2.train --test --experiment_version=testbaseline
+      --accelerator=$TORCH_DEVICE
+    deps:
+    - path: data/bin/embed_store
+      hash: md5
+      md5: f8000ac84a2fdceaf540cfe6643d764f.dir
+      size: 182321
+      nfiles: 8
+    - path: data/bin/filtered_dataset
+      hash: md5
+      md5: cba2fb97731b5326c1955243cb6cab4c.dir
+      size: 2605525
+      nfiles: 183
+    - path: data/bin/inimage_queries.csv
+      hash: md5
+      md5: 9d5d2b2392e5b2e655215317d6202c3e
+      size: 70449
+    - path: libs/binsense/cli/owlv2/train.py
+      hash: md5
+      md5: 64ff2ca3dfe155fa14fbf1632cf08209
+      size: 11859
+    - path: libs/binsense/lightning/config.py
+      hash: md5
+      md5: 1bb38406422b0a1f94a81a6d84c80ed2
+      size: 1728
+    params:
+      params.yaml:
+        train:
+          pos_neg_dataset_ratio: 98
+          manual_seed: 1234
+          batch_size: 8
+          profiler: simple
+          dl_workers: 10
+          min_epochs: 1
+          max_epochs: 30
+    outs:
+    - path: data/bin/testresults_testbaseline.csv
+      hash: md5
+      md5: 3594c08ae045e6269c861035d6591d67
+      size: 27609
+  owl_extract_embeddedproducts:
+    cmd: python -m binsense.cli.owlv2.run_extract_embedded_products
+    deps:
+    - path: data/bin/embed_store
+      hash: md5
+      md5: f8000ac84a2fdceaf540cfe6643d764f.dir
+      size: 182321
+      nfiles: 8
+    - path: data/bin/s3/bins.csv
+      hash: md5
+      md5: 108ba75b6d5e1e87391c3cabe7b38d4a
+      size: 160334
+    - path: data/bin/s3/items.csv
+      hash: md5
+      md5: 5253dc34d9b4b0c828e4a85879c742c9
+      size: 1934482
+    - path: libs/binsense/cli/owlv2/run_extract_embedded_products.py
+      hash: md5
+      md5: b58b0ab1ec5c8196b103fd5fddbf9331
+      size: 1314
+    - path: libs/binsense/dataprep/config.py
+      hash: md5
+      md5: 9542da7c91ca5ae874485b0c93cd9e2e
+      size: 3206
+    outs:
+    - path: data/bin/embedded_products.csv
+      hash: md5
+      md5: 7a2cef39defec1382f291f37367f7801
+      size: 7769

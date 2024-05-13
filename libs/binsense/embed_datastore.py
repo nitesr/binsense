@@ -32,6 +32,51 @@ class EmbeddingDatastore:
     def lookup(self, query: torch.Tensor) -> Tuple[List[str], torch.Tensor]:
         raise ValueError("Not supported!")
 
+class SafeTensorEmbeddingReadOnlyDS(EmbeddingDatastore):
+    def __init__(self, key_map: Dict[str, str], file_paths: List[str]) -> None:
+        self.key_map = key_map
+        self.file_paths = file_paths
+    
+    def _to_partition(self, key: str) -> str:
+        if key in self.key_map:
+            return self.file_paths[self.key_map[key]]
+        return None
+    
+    def _bulk_get(self, part_fpath: str, keys: List[str], device: Union[str, Any] = "cpu") -> Dict[str, torch.Tensor]:
+        tensors_dict = {}
+        if part_fpath and os.path.exists(part_fpath):
+            with safetensors.safe_open(part_fpath, framework="pt", device=device) as f:
+                for key in keys:
+                    if key in f.keys():
+                        tensors_dict[key] = f.get_tensor(key)
+        return tensors_dict
+    
+    def get(self, key: str, device: Union[str, Any] = "cpu") -> torch.Tensor:
+        fpath = self._to_partition(key)
+        tensors = self._bulk_get(fpath, [key], device)
+        return tensors[key] if key in tensors.keys() else None
+    
+    def has(self, key: str) -> bool:
+        if key in self.key_map:
+            return True
+        return self.get(key) is not None
+    
+    def get_many(self, keys: List[str], device: Union[str, Any] = "cpu") -> Dict[str, torch.Tensor]:
+        fpath_dict = {}
+        for k in keys:
+            fpath = self._to_partition(k)
+            if fpath and not fpath in fpath_dict:
+                fpath_dict[fpath] = []
+            fpath_dict[fpath].append(k)
+        
+        tensors = {}
+        for fpath in fpath_dict.keys():
+            ftensors = self._bulk_get(fpath, fpath_dict[fpath], device)
+            tensors.update(ftensors)
+        return tensors
+    
+    def get_keys(self) -> Iterator:
+        return self.key_map.keys()
 
 class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
     def __init__(
@@ -61,11 +106,11 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
     
     def _build_key_map(self) -> Dict[str, str]:
         key_fp_map = {}
-        for fp in self.file_paths:
+        for par, fp in self.file_paths.items():
             if os.path.exists(fp):
                 with safetensors.safe_open(fp, framework="pt") as f:
                     for k in f.keys():
-                        key_fp_map[k] = fp
+                        key_fp_map[k] = par
         return key_fp_map
     
     def _initialize(self, req_partitions: int):
@@ -208,3 +253,7 @@ class SafeTensorEmbeddingDatastore(EmbeddingDatastore):
             ftensors = self._bulk_get(fpath, fpath_dict[fpath], device)
             tensors.update(ftensors)
         return tensors
+    
+    def to_read_only_store(self) -> EmbeddingDatastore:
+        return SafeTensorEmbeddingReadOnlyDS(self.key_map, self.file_paths)
+    

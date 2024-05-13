@@ -8,12 +8,13 @@ from ...lightning.config import Config as TrainConfig
 from ...lightning.dataset import InImageQueryDatasetBuilder, LitInImageQuerierDM
 from ...lightning.owlv2_model import OwlV2InImageQuerier
 from ...lightning.model import LitInImageQuerier
-from ...embed_datastore import SafeTensorEmbeddingDatastore
-from ...utils import get_default_on_none, default_on_none
+from ...embed_datastore import SafeTensorEmbeddingDatastore, EmbeddingDatastore
+from ...utils import get_default_on_none, load_params
 
 from lightning.pytorch.loggers import TensorBoardLogger
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 
+import pandas as pd
 import lightning as L
 import logging, argparse, os, sys
 
@@ -23,28 +24,79 @@ def _get_baseline_model():
     model.load_state_dict(hloader.load_owlv2model_statedict())
     return OwlV2InImageQuerier(model)
 
-def _get_transform_fn(embed_ds):
-    processor = Owlv2ImageProcessor()
-    def transform(record):
+class TransformFn:
+    def __init__(self, embed_ds: EmbeddingDatastore) -> None:
+        self.embed_ds = embed_ds
+        self.processor = Owlv2ImageProcessor()
+        
+    def transform(self, record):
         inputs, target = record
         orig_width, orig_height = inputs['image'].width, inputs['image'].height
         max_length = max(orig_width, orig_height)
-        inputs['image'] = processor.preprocess(inputs['image'])['pixel_values'][0]
-        inputs['query'] = embed_ds.get(inputs['query']).reshape((1, -1))
-        if target['boxes'].shape[0] > 1:
+        inputs['image'] = self.processor.preprocess(inputs['image'])['pixel_values'][0]
+        inputs['query'] = self.embed_ds.get(inputs['query']).reshape((1, -1))
+        if target['q_boxes'].shape[0] > 0:
+            target['q_boxes'][:,0] = target['q_boxes'][:,0] * orig_width / max_length
+            target['q_boxes'][:,1] = target['q_boxes'][:,1] * orig_height / max_length
+
+        if target['boxes'].shape[0] > 0:
             target['boxes'][:,0] = target['boxes'][:,0] * orig_width / max_length
             target['boxes'][:,1] = target['boxes'][:,1] * orig_height / max_length
         return inputs, target
-    return transform
 
-def build_dataset(pos_neg_ratio: float = None):
+    def __call__(self, record: Any) -> Any:
+        return self.transform(record)
+
+def print_dataset_stats(cfg: DataPrepConfig, csv_path: str) -> None:
+    df = pd.read_csv(csv_path)[["query_label", "image_relpath", "count", "tag"]]
+    
+    # TODO: change it to presentable format
+    ds_stats_fp = os.path.join(cfg.root_dir, 'train_dataset_stats.txt')
+    with open(ds_stats_fp, 'w') as f:
+        txt = "count by tag --> \n"
+        metric = df.groupby("tag").aggregate("count")["count"]
+        txt += f'{metric}'
+        f.write(f"{txt}" + '\n')
+        print(txt)
+
+        txt = "count by tag & is_pos_query --> \n"
+        df["query_type"] = df["count"] > 0
+        metric = df.groupby(by=["tag", "query_type"]).aggregate("count")["count"]
+        txt += f'{metric}'
+        f.write(f"{txt}" + '\n')
+        print(txt)
+
+        txt = "quantiles by class counts --> \n"
+        txt += "train:\n"
+        metric = df.query("tag == 'train'").groupby(by=["query_label"]).aggregate("count")["count"].describe()
+        txt += f'{metric}' + '\n'
+        txt += "test:\n"
+        metric = df.query("tag == 'test'").groupby(by=["query_label"]).aggregate("count")["count"].describe()
+        txt += f'{metric}' + '\n'
+        f.write(f"{txt}" + '\n')
+        print(txt)
+
+        txt = "quantiles by item counts --> \n"
+        txt += "train:\n"
+        metric = df.query("tag == 'train'").groupby(by=["count"]).aggregate("count")["tag"].describe()
+        txt += f'{metric}' + '\n'
+        txt += "test:\n"
+        metric = df.query("tag == 'test'").groupby(by=["count"]).aggregate("count")["tag"].describe()
+        txt += f'{metric}' + '\n'
+        f.write(f"{txt}" + '\n')
+        print(txt)
+
+
+def build_dataset(pos_neg_ratio: float = None, manual_seed: int = None):
     tcfg = TrainConfig()
     dcfg = DataPrepConfig()
     dcfg.inimage_queries_pos_neg_ratio = get_default_on_none(pos_neg_ratio, dcfg.inimage_queries_pos_neg_ratio)
     dcfg.inimage_queries_csv = tcfg.data_csv_filepath
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
-    csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg).build()
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
+    csv_path, _  = InImageQueryDatasetBuilder(embed_ds=embed_ds, cfg=dcfg, manual_seed=manual_seed).build()
     print(f"dataset built @ {csv_path}")
+
+    print_dataset_stats(dcfg, csv_path)
 
 def _sync_config(
     batch_size: int = None, 
@@ -67,6 +119,7 @@ def train(
     learning_rate: float= None, 
     num_workers: int = 0, 
     ckpt_fname: str = None,
+    manual_seed: int = None,
     **kwargs):
     
     print('kwargs: ', kwargs)
@@ -74,12 +127,14 @@ def train(
     print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
     data_module = LitInImageQuerierDM(
         data_dir=cfg.data_dirpath,
         csv_filepath=cfg.data_csv_filepath, 
         batch_size=batch_size, 
-        num_workers=num_workers, transform=_get_transform_fn(embed_ds))
+        num_workers=num_workers, 
+        transform=TransformFn(embed_ds),
+        random_state=manual_seed)
     
     model = _get_baseline_model()
     lmodel = LitInImageQuerier(model, cfg=cfg)
@@ -96,17 +151,20 @@ def test(
     num_workers: int = 0, 
     ckpt_fname: str = None,
     experiment_version: str = None,
+    manual_seed: int = None,
     **kwargs):
     cfg, kwargs = _sync_config(batch_size=batch_size, num_workers=num_workers, **kwargs)
     print('kwargs: ', kwargs)
     
     # TODO: change it to get directly from TrainConfig
-    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True)
+    embed_ds = SafeTensorEmbeddingDatastore(cfg.embed_store_dirpath, read_only=True).to_read_only_store()
     data_module = LitInImageQuerierDM(
         data_dir=cfg.data_dirpath,
         csv_filepath=cfg.data_csv_filepath, 
         batch_size=batch_size, 
-        num_workers=num_workers, transform=_get_transform_fn(embed_ds))
+        num_workers=num_workers, 
+        transform=TransformFn(embed_ds),
+        random_state=manual_seed)
     
     model = _get_baseline_model()
     lmodel = LitInImageQuerier(
@@ -122,6 +180,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     cfg = TrainConfig()
     dcfg = DataPrepConfig()
+    params = load_params('./params.yaml')
 
     parser.add_argument(
         "--learning_rate", help="learning rate", type=float,
@@ -129,15 +188,15 @@ if __name__ == '__main__':
     
     parser.add_argument(
         "--min_epochs", help="minimum number of epochs", type=int,
-        default=cfg.min_epochs)
+        default=params.train.min_epochs)
     
     parser.add_argument(
         "--max_epochs", help="maximum number of epochs", type=int,
-        default=cfg.max_epochs)
+        default=params.train.max_epochs)
     
     parser.add_argument(
         "--batch_size", help="batch size", type=int,
-        default=cfg.batch_size)
+        default=params.train.batch_size)
     
     parser.add_argument(
         "--score_threshold", help="score_threshold value", type=float,
@@ -157,7 +216,7 @@ if __name__ == '__main__':
     
     parser.add_argument(
         "--num_workers", help="Number of dataloader workers", type=int,
-        default=cfg.num_workers)
+        default=params.train.dl_workers)
     
     parser.add_argument(
         "--ckpt_fname", help="checkpoint of filename to resume from", type=str)
@@ -187,15 +246,19 @@ if __name__ == '__main__':
     
     parser.add_argument(
         "--profiler", help="profiling", type=str,
-        default=None)
+        default=params.train.profiler)
     
     parser.add_argument(
         "--build_dataset", help="build only dataset", action="store_true")
     
     parser.add_argument(
         "--pos_neg_dataset_ratio", help="pos:neg data ratio",
-        default=dcfg.inimage_queries_pos_neg_ratio,
+        default=params.train.pos_neg_dataset_ratio,
         type=float
+    )
+    parser.add_argument(
+        "--manual_seed", help="manual seed for randomness",
+        default=params.train.manual_seed, type=int
     )
     
     parser.add_argument(
@@ -206,7 +269,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     if args.build_dataset:
-        build_dataset(args.pos_neg_dataset_ratio)
+        build_dataset(args.pos_neg_dataset_ratio, args.manual_seed)
     
     if args.train:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
@@ -215,6 +278,7 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
+            manual_seed=params.train.manual_seed,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,
@@ -236,6 +300,7 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
+            manual_seed=params.train.manual_seed,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,

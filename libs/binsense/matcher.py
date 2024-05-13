@@ -56,6 +56,44 @@ class HungarianMatcher(nn.Module):
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
     
     @torch.no_grad()
+    def compute_class_cost(self, pred_logits: torch.Tensor, targets: List[Dict]) -> torch.Tensor:
+        _, _, num_classes = pred_logits.shape
+        
+        # flatten to compute the cost matrices in a batch
+        out_prob = pred_logits.flatten(0, 1)
+        if num_classes == 1:
+            # in case of num_classes = 1, apply sigmoid to get probability
+            out_prob = torch.sigmoid(out_prob)
+            matched_out_prob = out_prob
+        else:
+            out_prob = out_prob.softmax(-1)  # [batch_size * num_queries, num_classes]
+            # concat the target labels to match the flattened preds
+            tgt_ids = torch.cat([v["labels"] for v in targets])
+            matched_out_prob = out_prob[:, tgt_ids]
+        
+        # Compute the classification cost. Contrary to the loss, we don't use the NLL,
+        # but approximate it in 1 - proba[target class].
+        # The 1 is a constant that doesn't change the matching, it can be ommitted.
+        cost_class = -matched_out_prob
+        return self.cost_class * cost_class
+    
+    @torch.no_grad()
+    def compute_bbox_cost(self, pred_boxes: torch.Tensor, targets: List[Dict]) -> Tuple[torch.Tensor, torch.Tensor]:
+        
+        # flattened preds and concat the target boxes to match
+        out_bbox = pred_boxes.flatten(0, 1)  # [batch_size * num_queries, 4]
+        tgt_bbox = torch.cat([v["boxes"] for v in targets])
+
+        # Compute the L1 cost between boxes
+        cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
+
+        # Compute the giou cost betwen boxes
+        cost_giou = -generalized_box_iou(center_to_corners(out_bbox), center_to_corners(tgt_bbox))
+
+        return self.cost_bbox * cost_bbox + self.cost_giou * cost_giou
+
+
+    @torch.no_grad()
     def forward(
         self, 
         outputs: Dict[str, torch.Tensor], 
@@ -81,38 +119,16 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        bs, num_queries, num_classes = outputs["pred_logits"].shape
-        
+        bs, num_queries, _ = outputs["pred_boxes"].shape
 
-        # flatten to compute the cost matrices in a batch
-        out_prob = outputs["pred_logits"].flatten(0, 1)
-        if num_classes == 1:
-            # in case of num_classes = 1, apply sigmoid to get probability
-            out_prob = torch.sigmoid(out_prob)
-            matched_out_prob = out_prob
-        else:
-            out_prob = out_prob.softmax(-1)  # [batch_size * num_queries, num_classes]
-            # concat the target labels to match the flattened preds
-            tgt_ids = torch.cat([v["labels"] for v in targets])
-            matched_out_prob = out_prob[:, tgt_ids]
-            
-        # Compute the classification cost. Contrary to the loss, we don't use the NLL,
-        # but approximate it in 1 - proba[target class].
-        # The 1 is a constant that doesn't change the matching, it can be ommitted.
-        cost_class = -matched_out_prob
-        
-        # flattened preds and concat the target boxes to match
-        out_bbox = outputs["pred_boxes"].flatten(0, 1)  # [batch_size * num_queries, 4]
-        tgt_bbox = torch.cat([v["boxes"] for v in targets])
+        if outputs['pred_logits'] is not None:
+            cost_class = self.compute_class_cost(outputs["pred_logits"], targets)
+        else:   
+            cost_class = torch.as_tensor(0.0, device=outputs["pred_boxes"].device)
 
-        # Compute the L1 cost between boxes
-        cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
+        cost_bbox = self.compute_bbox_cost(outputs['pred_boxes'], targets)
 
-        # Compute the giou cost betwen boxes
-        cost_giou = -generalized_box_iou(center_to_corners(out_bbox), center_to_corners(tgt_bbox))
-
-        # Final cost matrix
-        C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
+        C = cost_class + cost_bbox
         
         # Unflatten, B x patches x sum(tgt[i]_size)
         C = C.view(bs, num_queries, -1).cpu()

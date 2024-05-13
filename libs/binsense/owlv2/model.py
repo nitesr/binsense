@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from torch import nn
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 
 # Copied from transformers.modeling_utils
@@ -354,7 +355,7 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
     def embed_image_query(
         self, 
         query_image_features: torch.FloatTensor,
-        query_bbox: torch.Tensor = torch.as_tensor([0.5, 0.5, 1, 1])
+        query_bboxes: torch.Tensor = None
     ) -> torch.FloatTensor:
         _, class_embeds = self.class_predictor(query_image_features)
         pred_boxes = self.box_predictor(query_image_features)
@@ -365,8 +366,12 @@ class Owlv2ForObjectDetection(Owlv2PreTrainedModel):
         best_box_indices = []
         pred_boxes_device = pred_boxes_as_corners.device
 
+        if query_bboxes is None:
+            query_bboxes = torch.as_tensor(np.array([[0.5, 0.5, 1, 1]] * query_image_features.shape[0]))
+            query_bboxes = query_bboxes.to(pred_boxes_device)
+
         for i in range(query_image_features.shape[0]):
-            each_query_box = query_bbox.to(pred_boxes_device).unsqueeze(0)
+            each_query_box = query_bboxes[i].unsqueeze(0)
             each_query_box = center_to_corners_format_torch(each_query_box)
             each_query_pred_boxes = pred_boxes_as_corners[i]
             ious, _ = box_iou(each_query_box, each_query_pred_boxes)

@@ -1,9 +1,110 @@
 from typing import Tuple, Union, List
 from torch import Tensor
 
-import numpy as np
+from torchvision.utils import draw_bounding_boxes, draw_segmentation_masks
+from torchvision.tv_tensors import Mask
+from torchvision.ops import box_convert
+import torchvision.transforms.v2  as transforms
+from PIL.Image import Image as PILImage
 
-import torch
+import numpy as np
+import torch, PIL
+
+
+def create_polygon_mask(
+        image_size: Tuple[int, int], 
+        vertices: Union[np.ndarray, List[Tuple[float, float]]]):
+    """
+    Create a grayscale image with a white polygonal area on a black background.
+
+    Parameters:
+    - image_size (tuple): A tuple representing the dimensions (width, height) of the image.
+    - vertices (list): A list of tuples, each containing the x, y coordinates of a vertex
+                        of the polygon. Vertices should be in clockwise or counter-clockwise order.
+
+    Returns:
+    - PIL.Image.Image: A PIL Image object containing the polygonal mask.
+    """
+
+    # Create a new black image with the given dimensions
+    mask_img = PIL.Image.new('L', image_size, 0)
+
+    # Draw the polygon on the image. The area inside the polygon will be white (255).
+    PIL.ImageDraw.Draw(mask_img, 'L').polygon(vertices, fill=(255))
+    
+    return mask_img
+
+
+def annotate_image(
+        image: PILImage, 
+        labels: List[str], 
+        bboxes_cxy: np.ndarray, 
+        seg_coords: List[np.array],
+        colors: List[Tuple[int, int, int]] = None) -> PILImage:
+    """
+    Annotate image with segmentation mask
+    """
+
+    if labels is not None and bboxes_cxy is not None and len(bboxes_cxy) != len(labels):
+        raise ValueError(f"size of bboxes({len(bboxes_cxy)}) and labels({len(labels)}) doesn't match.")
+
+    if labels is not None and seg_coords is not None and len(seg_coords) != len(labels):
+        raise ValueError(f"size of segments({len(seg_coords)}) and labels({len(labels)}) doesn't match.")
+    
+    if bboxes_cxy is None or seg_coords is None:
+        raise ValueError('either bbox or seg are required!')
+    
+    n_annotations = len(bboxes_cxy) if bboxes_cxy is not None else len(seg_coords)
+    assert n_annotations > 0
+
+    if colors and len(colors) != n_annotations:
+        raise ValueError('size of colors and labels doesn\'t match.')
+    
+    if not colors:
+        colors=[(255,255,0)]*n_annotations
+    
+    def unnorm_bboxes():
+        bb = bboxes_cxy.copy()
+        bb[:,[0,2]] *= image.width
+        bb[:,[1,3]] *= image.height
+        return bb
+    
+    def unnorm_and_mask():
+        mask_imgs = []
+        for c in seg_coords:
+          cc = c.copy()
+          cc[:,0] *= image.width
+          cc[:,1] *= image.height
+          mask_imgs.append(create_polygon_mask(image.size, cc))
+        return mask_imgs  
+        
+    mask_imgs = unnorm_and_mask() if seg_coords is not None else []
+    bboxes = unnorm_bboxes() if bboxes_cxy is not None else []
+    
+    annotated_tensor = transforms.PILToTensor()(image)
+    # Convert mask images to tensors
+    if seg_coords is not None:
+        masks = torch.concat([Mask(transforms.PILToTensor()(mask_img), dtype=torch.bool) for mask_img in mask_imgs])
+
+        # Annotate the sample image with segmentation masks
+        annotated_tensor = draw_segmentation_masks(
+            image=annotated_tensor, 
+            masks=masks, 
+            alpha=0.2,
+            colors=colors
+        )
+
+    if bboxes_cxy is not None:
+        # Annotate the sample image with labels and bounding boxes
+        annotated_tensor = draw_bounding_boxes(
+            image=annotated_tensor, 
+            boxes=box_convert(torch.Tensor(bboxes), 'cxcywh', 'xyxy'),
+            labels=labels,
+            colors=colors
+        )
+
+    return PIL.Image.fromarray(np.moveaxis(annotated_tensor.numpy(), 0, -1))
+
 
 def center_to_corners_torch(bboxes_center: torch.Tensor):
     x_c, y_c, w, h = bboxes_center.unbind(-1)

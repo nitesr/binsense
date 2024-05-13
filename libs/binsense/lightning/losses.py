@@ -55,12 +55,15 @@ class DETRMultiBoxLoss(MultiBoxLoss):
     def _run_matcher(self, pred_logits, pred_boxes, gt_labels, gt_boxes):
         # lets not pass no-object logits to matcher 
         #   as there is nothing to match in ground truth
-        match_pred_logits = pred_logits[...,:-1] if self.has_no_object_class else pred_logits
+        match_pred_logits = None
+        if pred_logits is not None:
+            match_pred_logits = pred_logits[...,:-1] if self.has_no_object_class else pred_logits
+
         matching_indices = self.matcher(
                 outputs={'pred_boxes': pred_boxes, 'pred_logits': match_pred_logits},
                 targets=[ \
                     {
-                        'labels': gt_labels[i],
+                        'labels': gt_labels[i] if gt_labels is not None else None,
                         'boxes': gt_box
                     } for i, gt_box in enumerate(gt_boxes) ]
             )
@@ -168,31 +171,45 @@ class DETRMultiBoxLoss(MultiBoxLoss):
         
         assert "boxes" in targets
         assert "labels" in targets
+        assert "q_boxes" in targets
         assert "pred_boxes" in outputs
         assert "pred_logits" in outputs
 
         pred_boxes = outputs["pred_boxes"] # B x NUM_PATCHES x 4
         pred_logits = outputs["pred_logits"] # B x NUM_PATCHES x NUM_QUERIES
-        gt_boxes = targets["boxes"] # B x [ M x 4 ]
+        gt_boxes = targets["boxes"] # B x [ A x 4 ]
+        gt_qboxes = targets["q_boxes"] # B x [ M x 4 ]
         
         assert pred_logits.shape[:2] == pred_boxes.shape[:2]
         assert pred_boxes.shape[0] == len(gt_boxes)
-        
+        assert pred_boxes.shape[0] == len(gt_qboxes)
+
+        # Run hungarian matcher for both 
+        #   (q_boxes, labels <> pred_boxes, pred_logits)  for label loss
+        #    and (boxes <> pred_boxes) for bbox giou and reg loss
+
+        # for label loss        
         # run hungrian matcher
         #   match is required only when the batch's ground truth has atleast one object
         gt_labels = targets["labels"] # B x [M x 1]
         match_required = max([ len(gt_l) for gt_l in gt_labels ]) > 0
         if match_required:
-            matching_indices = self._run_matcher(pred_logits, pred_boxes, gt_labels, gt_boxes)
-            loss_reg, loss_giou = self._calc_bbox_loss(pred_boxes, gt_boxes, matching_indices)
+            matching_indices = self._run_matcher(pred_logits, pred_boxes, gt_labels, gt_qboxes)
             loss_label = self._calc_label_loss(pred_logits, gt_labels, matching_indices)
         else:
-            loss_reg, loss_giou = torch.as_tensor(0.0, device=pred_boxes.device), torch.as_tensor(0.0, device=pred_boxes.device)
             loss_label = self._calc_label_loss(pred_logits, gt_labels)
         
+        # for bbox giou and reg loss
+        match_required = max([ len(gt_bbox) for gt_bbox in gt_boxes ]) > 0
+        if match_required:
+            matching_indices = self._run_matcher(None, pred_boxes, None, gt_boxes)
+            loss_reg, loss_giou = self._calc_bbox_loss(pred_boxes, gt_boxes, matching_indices)
+        else:
+            loss_reg, loss_giou = torch.as_tensor(0.0, device=pred_boxes.device), torch.as_tensor(0.0, device=pred_boxes.device)
+        
         loss = self.reg_loss_coef * loss_reg \
-            + self.giou_loss_coef * loss_giou \
-            + self.label_loss_coef * loss_label
+                + self.giou_loss_coef * loss_giou \
+                + self.label_loss_coef * loss_label
         
         return OrderedDict({
             'loss': loss, 'loss_reg': loss_reg.detach(), 

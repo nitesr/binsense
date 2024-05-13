@@ -8,9 +8,9 @@ on:
           - "libs/**"
           - "params.yaml"
           - "dvc.*"
-    pull_request:
-        branches:
-          - "main"
+    # pull_request:
+    #     branches:
+    #       - "main"
     
 jobs:
     deploy-runner:
@@ -89,21 +89,23 @@ jobs:
             
             - name: cml setup
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
-                # REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+                # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
               run: cml ci
             
             - name: dvc-repro-cml
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
-                # REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+                # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
                 TORCH_DEVICE: 'cuda'
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
               run: |
+              
                 apt-get update
                 apt-get install cron
+                apt-get install libgl1
 
                 #current directory
                 pwd
@@ -128,22 +130,23 @@ jobs:
                 echo "## Validating outputs" >> report.md
                 
                 echo "### data split distributions" >> report.md
-                cml-publish data/bin/handpick_train_test_dist.png --md >> report.md
+                echo "![inline](./data/bin/handpick_train_test_dist.png)" >> report.md
                 
                 echo "### data split samples" >> report.md
-                cml-publish data/bin/handpick_train_test_samples.png --md >> report.md
+                echo "![inline](./data/bin/handpick_train_test_samples.png)" >> report.md
                 
                 echo "### pre-annotation samples for annotation task" >> report.md
-                cml-publish data/bin/sample_preannotated_images.png --md >> report.md
-
+                echo "![inline](./data/bin/sample_preannotated_images.png)" >> report.md
+                
                 echo "### ground truth annotation samples after annotation" >> report.md
-                cml-publish data/bin/sample_gt_annotation_images.png --md >> report.md
+                echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> report.md
 
                 echo "### downloaded dataset sanity checks after annotation" >> report.md
-                cat data/bin/downloaded_data_valid_results.txt >> report.md
+                cat ./data/bin/downloaded_data_valid_results.txt >> report.md
 
                 echo "### train dataset stats before training" >> report.md
-                cat data/bin/train_dataset_stats.txt >> report.md
+                cat ./data/bin/train_dataset_stats.txt >> report.md
+
                 
                 #########################
 
@@ -157,6 +160,8 @@ jobs:
                 # done
 
                 #########################
-        
-                cml comment create --target=pr --update report.md
+                
+                cat report.md
+
+                cml comment create report.md &
 

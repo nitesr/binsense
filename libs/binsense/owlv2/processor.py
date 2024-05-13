@@ -5,7 +5,7 @@ from .utils import infer_channel_dimension_format
 from .utils import get_channel_dimension_axis
 from .utils import get_size_dict, get_image_size, to_pil_image
 from .utils import make_list_of_images, valid_images, is_scaled_image, is_valid_image
-from .utils import center_to_corners_format_torch
+from .utils import center_to_corners_format_torch, corner_to_centers_format_torch
 from .utils import box_iou
 
 from typing import Union, Optional, List, Dict, Iterable, Tuple
@@ -656,7 +656,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
                 returned pixels are in format B x W x H x C
         """
         if isinstance(pixels, torch.Tensor):
-            pixels = pixels.detach().numpy()
+            pixels = pixels.detach().cpu().numpy()
         
         if len(pixels.shape) < 4:
             raise ValueError("pixels shape should be B x C x W x H")
@@ -670,9 +670,23 @@ class Owlv2ImageProcessor(BaseImageProcessor):
         unnormalized_pixels = (unnormalized_pixels * 255).astype(np.uint8)
         return np.moveaxis(unnormalized_pixels, 1, -1)
     
-    def post_process_bounding_boxes(
-        self, boxes, target_sizes: Union[torch.Tensor, List[Tuple]] = None
-    ):
+    def resize_boxes_to_original_size(
+        self, boxes_cxy: torch.Tensor, 
+        orig_sizes: torch.Tensor,
+        target_sizes: torch.Tensor = None,
+    ) -> torch.Tensor:
+        orig_max_sizes = torch.max(orig_sizes, 1, keepdim=True).values
+        scale_fct = (orig_max_sizes / orig_sizes)
+        new_boxes_cxy = boxes_cxy.clone()
+        new_boxes_cxy[...,[0,2]] *= scale_fct[:,None,[0]]
+        new_boxes_cxy[...,[1,3]] *= scale_fct[:,None,[1]]
+
+        return new_boxes_cxy
+
+    
+    def unnormalize_bounding_boxes(
+        self, boxes: torch.Tensor, target_sizes: Union[torch.Tensor, List[Tuple]] = None
+    ) -> torch.Tensor:
         """
         Converts the bounding box raw output of [`Owlv2ForObjectDetectionOutput`] into final bounding boxes in (top_left_x, top_left_y,
         bottom_right_x, bottom_right_y) format.
@@ -692,9 +706,8 @@ class Owlv2ImageProcessor(BaseImageProcessor):
                     "Make sure that you pass in as many target sizes as the batch dimension of the logits"
                 )
         
-        # Convert to [x0, y0, x1, y1] format
-        boxes = center_to_corners_format_torch(boxes)
 
+        boxes = center_to_corners_format_torch(boxes)
         # Convert from relative [0, 1] to absolute [0, height] coordinates
         if target_sizes is not None:
             if isinstance(target_sizes, List):
@@ -705,6 +718,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
 
             scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1).to(boxes.device)
             boxes = boxes * scale_fct[:, None, :]
+
         return boxes
 
 
@@ -739,11 +753,11 @@ class Owlv2ImageProcessor(BaseImageProcessor):
         scores = torch.sigmoid(probs.values)
         labels = probs.indices
 
-        # Convert to [x0, y0, x1, y1] format & scale
-        boxes = self.post_process_bounding_boxes(boxes, target_sizes)
+        # convert to [x0, y0, x1, y1] format and scale
+        boxes_xy = self.unnormalize_bounding_boxes(boxes, target_sizes)
 
         results = []
-        for s, l, b in zip(scores, labels, boxes):
+        for s, l, b in zip(scores, labels, boxes_xy):
             score = s[s > threshold]
             label = l[s > threshold]
             box = b[s > threshold]

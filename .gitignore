@@ -163,11 +163,14 @@ cython_debug/
 .DS_Store
 
 # Custom Folders
-data/
 _data/
 _models/
 _logs/
 _mount/
+*.bkp
+
+# dvc
+!*.dvc
 
 # lightning
 lightning_logs
@@ -175,3 +178,4 @@ lightning_logs
 # npm
 node_modules
 dist
+

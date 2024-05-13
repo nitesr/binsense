@@ -1,16 +1,20 @@
+import PIL.Image
 from .config import DataPrepConfig
 from .dataset import BinDataset
-from .model_spec import BboxPredictor
+from ..lightning.spec import ObjectDetector
 from ..utils import backup_file
+from ..img_utils import convert_cxy_xy_and_scale
+from ..plot_utils import plot_bboxes
 from ..dataset_util import YoloDatasetBuilder, DataTag
 
 from torch.utils.data import DataLoader
-from typing import List, Tuple
+from typing import List, Tuple, Any, Dict
 from tqdm import tqdm
+from matplotlib import pyplot as plt
 
 import numpy as np
 import pandas as pd
-import os, torch, logging, shutil
+import os, torch, logging, random, PIL
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +37,7 @@ class TrainsetLoader:
         labels = item_df["bbox_label"].sort_values(axis=0).unique()
         
         # filter for train/valid data and get image_name
-        data_item_df = item_df[item_df["tag"] != "test"]
+        data_item_df = item_df # [item_df["tag"] != "test"]
         data_bin_df = data_item_df[["image_name", "tag"]].drop_duplicates(ignore_index=True)
         return data_bin_df, data_item_df, labels
 
@@ -43,15 +47,16 @@ class TrainsetLoader:
 class Preannotator:
     def __init__(
         self, 
-        bbox_predictor: BboxPredictor,
+        bbox_predictor: ObjectDetector,
         config: DataPrepConfig,
-        test_run: False
-        ) -> None:
-        
+        device: str = 'cpu',
+        test_run: bool = False
+    ) -> None:    
         self.model = bbox_predictor
         self.cfg = config
         self.ts_loader = TrainsetLoader(config)
         self.test_run = test_run
+        self.device = torch.device(device)
     
     def _prepare_chkpt_files(self) -> None:
         if os.path.exists(self.cfg.label_chkpt_filepath):
@@ -67,11 +72,9 @@ class Preannotator:
         with open(lblchkpoint_file, 'w') as f:
             f.write('\n'.join(labels))
     
-    def _predict_bboxes(self, x):
+    def _predict_bboxes(self, x, model):
         with torch.no_grad():
-            _, scores, bboxes = self.model(x)
-            scores = scores.numpy()
-            bboxes = bboxes.numpy()
+            _, bboxes, scores = model(x)
         return scores, bboxes
     
     def _save_result(self, record_idx, bin_df, item_df, label_dict, scores, bboxes):
@@ -91,9 +94,29 @@ class Preannotator:
                     f.write(' ')
                     bbox_idx += 1
             f.write('\n')
-    
-    def preannotate(self, batch_size=None, test_run=None):
         
+        return bboxes_count
+    
+    def save_samples(self, samples: List[Dict]) -> None:
+        fig, axs = plt.subplots(len(samples), 2, figsize=(4*2, len(samples)*3))
+        for i, d in enumerate(samples):
+            img_path = os.path.join(self.cfg.rawdata_images_dir, d['image_name'])
+            oimg_pil = PIL.Image.open(img_path)
+            pimg = d['padded_image']
+            labels = [f'Score: {s:1.3f}' for s in d['scores']]
+            
+            obboxes = convert_cxy_xy_and_scale(d['bboxes'], (oimg_pil.width, oimg_pil.height))
+            pbboxes = convert_cxy_xy_and_scale(d['padded_bboxes'], pimg.shape[:2])
+
+            plot_bboxes(np.array(oimg_pil), obboxes, labels, ax=axs[i][0], title=('original' if i==0 else None))
+            plot_bboxes(pimg, pbboxes, labels, ax=axs[i][1], title=('processed' if i==0 else None))
+        fpath = os.path.join(self.cfg.root_dir, 'sample_preannotated_images.png')
+        fig.suptitle("preannotated bounding boxes")
+        plt.savefig(fname=fpath, 
+        format='png')
+        logger.info(f'created samples figure at {fpath}')
+
+    def preannotate(self, batch_size=None, test_run=None): 
         if batch_size is None:
             batch_size = self.cfg.batch_size
             
@@ -105,10 +128,10 @@ class Preannotator:
         
         self._save_labels(labels)
         image_names = bin_df['image_name'].tolist()
-        image_names = image_names[0:10] if self.test_run else image_names
+        image_names = image_names[0:10] if test_run else image_names
         train_ds = BinDataset(image_names, 
             preprocessor=self.model.processor(), 
-            images_dir=self.cfg.data_split_images_dir)
+            images_dir=self.cfg.rawdata_images_dir)
         train_dl = DataLoader(train_ds, batch_size=batch_size, pin_memory=True)
         
         label_dict = YoloDatasetBuilder().add_categories(labels)
@@ -117,22 +140,58 @@ class Preannotator:
             f.write('# preannotated bounding boxes format - image_name bboxes_count *[bbox_label_id bbox_score center_x center_y width height]')
             f.write('\n')
         
-        self.model.eval()
+        class RandomBin:
+            def __init__(self, max: int) -> None:
+                self.max = max
+                self.bin = []
+            
+            def add(self, obj: Any) -> None:
+                if random.random() > 0.5:
+                    self.bin.append(obj)
+            
+            def get(self) -> List[Any]:
+                return self.bin
+        
+        model = self.model.to(self.device)
+        model.eval()
         record_idx = 0
         
+        rnd_bin = RandomBin(4)
         dl_progress_bar = tqdm(total=len(train_ds), desc="predicting bboxes", file=open(os.devnull, 'w'))
         logger.info(str(dl_progress_bar))
         progress_step = len(train_ds) // 5
-        for _, x in train_dl:
-            scores, bboxes = self._predict_bboxes(x)
+        for _, sizes, x in train_dl:
+            x = x.to(self.device)
+            sizes = sizes.to(self.device)
+            scores, pred_bboxes = self._predict_bboxes(x, model)
+            
+            #resize the bboxes and normalize
+            bboxes = self.model.processor().resize_boxes_to_original_size(pred_bboxes.detach(), sizes)
+            obboxes = bboxes.detach()
+
             for i in range(0, len(bboxes)):
-                self._save_result(record_idx, bin_df, item_df, label_dict, scores[i], bboxes[i])
+                bboxcnt_saved = self._save_result(
+                    record_idx, bin_df, item_df, 
+                    label_dict, scores[i].cpu().numpy(), 
+                    bboxes[i].cpu().numpy())
+                
+                image_name = bin_df.iloc[record_idx]["image_name"]
+                padded_img = self.model.processor().unnormalize_pixels(x[i].unsqueeze(0))[0]
+                rnd_bin.add({
+                    'image_name': image_name, 
+                    'padded_image': padded_img, 
+                    'padded_bboxes':pred_bboxes[i][:bboxcnt_saved].cpu().numpy(), 
+                    'bboxes': obboxes[i][:bboxcnt_saved].cpu().numpy(), 
+                    'scores': scores[i][:bboxcnt_saved].cpu().numpy()
+                })
                 record_idx += 1
+
             dl_progress_bar.update(len(x))
             if dl_progress_bar.n >= progress_step:
                 progress_step += dl_progress_bar.n
                 logger.info(str(dl_progress_bar))
         
+        self.save_samples(rnd_bin.get())
         return self.cfg.label_chkpt_filepath, self.cfg.bbox_chkpt_filepath
 
 class RoboflowUploadBuilder:
@@ -153,7 +212,7 @@ class RoboflowUploadBuilder:
         tokens = [ t.strip() for t in line.split()]
         image_name = tokens[0]
         tag = bin_df[bin_df["image_name"] == image_name]["tag"].values[0]
-        img_path = os.path.join(self.cfg.data_split_images_dir, image_name)
+        img_path = os.path.join(self.cfg.rawdata_images_dir, image_name)
         img_id = ds_builder.add_image(img_path, DataTag(tag))
         
         #i = 1 is binqty
@@ -196,5 +255,5 @@ class RoboflowUploadBuilder:
         
         logger.info(f'processed {linecnt} records and {len(labels)} labels.')
         upload_dir = self._prepare_uploaddir(dir_path)
-        ds_builder.build().to_file(upload_dir, format='yolov8', exclude_tags=[DataTag.TEST])
+        ds_builder.build().to_file(upload_dir, format='yolov8', exclude_tags=[])
         return upload_dir
