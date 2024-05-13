@@ -89,14 +89,14 @@ jobs:
             
             - name: cml setup
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
-                # REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+                # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
               run: cml ci
             
             - name: dvc-repro-cml
               env:
-                REPO_TOKEN: ${{ steps.get-token.outputs.token }}
-                # REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+                # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
+                REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
                 TORCH_DEVICE: 'cuda'
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
