@@ -111,6 +111,8 @@ jobs:
 
                 #current directory
                 pwd
+                nvcc --version
+                nvidia-smi
 
                 # upload logs to s3
                 echo "* * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1" >> mycron
@@ -118,6 +120,7 @@ jobs:
                 rm mycron
 
                 # Install dependencies
+                pip install torch[cuda]==2.2.1
                 pip install -r requirements.txt
                 pip install -e libs
                 mkdir -p data/bin data/bin metrics/bin data/amzbin data/coco_2017  _logs/coco_2017 _logs/bin 
