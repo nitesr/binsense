@@ -20,7 +20,7 @@ This project includes necessary work to address the capstone Project 4 done part
 |---------------------|------------------------|
 | [Dual Encoder](./notebooks/)       |  Leo Pimentel        |
 | [OWL](./notebooks/owlv2_playground.ipynb)       | Nitesh Chinthireddy        |
-| [DETR](./notebooks/FinalFinetunhood.ipynb)       | Rathi Anand Chinthireddy        |
+| [DETR](./notebooks/FinalFinetunhood.ipynb)       | Rathi Anand        |
 
 ## Project-4: BinSense AI - Inventory Vision System
 Objectives: \
