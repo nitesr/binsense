@@ -133,15 +133,7 @@ stages:
       - data/bin/filtered_dataset
       - data/bin/inimage_queries.csv
       - data/bin/embed_store
-    out:
+    outs:
       - metrics/bin/train_last_losses_metrics.csv
       - metrics/bin/val_last_losses_metrics.csv
       - metrics/bin/val_confusion_matrix.png
-
-
-  
-
-
-  
-
-
