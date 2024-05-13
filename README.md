@@ -14,9 +14,11 @@ This project includes necessary work to address the capstone Project 4 done part
 |---------------------|------------------------|
 | [Dual Encoder](https://drive.google.com/file/d/1S-_kYbOy6t83Eh-eDE-u4EUlNPcwC0gS/view?usp=sharing)       |  Leo Pimentel        |
 | [OWL](https://drive.google.com/file/d/1n6uaXb41HG-zSu1ifgDMWU26q0QAGybY/view?usp=drive_link)       | Nitesh Chinthireddy        |
-y
+
+## Model Notebooks
+|  Notebook           |  Author                |
 |---------------------|------------------------|
-| [Dual Encoder](./notebooks/)       |  Leo Pimentel        |
+| [Dual Encoder](./notebooks/nl_image_search_tester.ipynb)       |  Leo Pimentel        |
 | [OWL](./notebooks/owlv2_playground.ipynb)       | Nitesh Chinthireddy        |
 | [DETR](./notebooks/FinalFinetunhood.ipynb)       | Rathi Anand        |
 
