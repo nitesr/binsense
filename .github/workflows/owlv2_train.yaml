@@ -77,7 +77,7 @@ jobs:
 
             - uses: actions/setup-python@v2
               with:
-                python-version: "3.11.8"
+                python-version: "3.9"
 
             - name: Configure AWS credentials
               id: creds
