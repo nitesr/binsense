@@ -98,7 +98,7 @@ jobs:
                 # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
                 REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
                 TORCH_DEVICE: 'cuda'
-                LT_ACCELERATOR: 'gpu'
+                LT_ACCELERATOR: 'auto'
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
