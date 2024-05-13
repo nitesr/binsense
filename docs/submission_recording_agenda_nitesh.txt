@@ -1,0 +1,52 @@
+Agenda:
+- Data analysis
+- model research
+    num of item classes vs dataset is very high
+    prompted for zero/one-shot detection model
+
+- model arch
+    OWL is based of CLIP model
+    its a zero & one-shot detection model
+    tried using one-shot detection (image guided object detection)
+
+    Item Image (I/P) -> VIT (backbone) -> features
+    Item Image (I/P) -> VIT (backbone) -> class_head (no query) -> embeddings
+    Bin Image, Item embeddings(I/P) -> VIT (backbone) -> class_head (with query) -> logits -> sigmoid -> scores
+    Bin Image (I/P) -> VIT (backbone) -> bbox_head -> bbox coords
+    Bin Image (I/P) -> VIT (backbone) -> objectness_head -> objectness logits
+
+    B x C X 960 X 960 -> 16 x 16 patch -> 3600 patches / anchor boxes
+
+- data pipeline
+    data split -> prepare for upload -> annotate
+    download & prepare for train
+      -> crop based on segments by max area
+      -> generate cropped image embeddings with max IOU
+      -> prepare positive & negative queries (image, label, count, query_bbox_coords, all_bbox_coords)
+      -> test owl baseline -> train select best checkpoint
+
+- loss & metrics
+    - hungarian match anchor to ground truth
+    - losses: focal sigmoid, bbox l1 & bbox iou
+    - metrics:  confusion matrix, match accuracy by counts
+
+- model training
+    - could't complete for OWL 
+
+- model inference
+  - react webapp (add product to cart -> select bin image -> check the results)
+  - fast api for Restful API
+
+- deploy pipeline
+    bundle react webap
+    package bundle and fast api
+    mount best model, item embeddings, product list
+    deploy to ec2
+
+- mlops
+   - dvc for data version and pipeline
+   - cml (iterative/cml) with github actions for CI/CD
+   - aws cloudformation with github actions to provision / deprovision resources
+
+- model monitoring
+  - couldn't complete

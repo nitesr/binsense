@@ -1,6 +1,27 @@
 # binsense
 This project includes necessary work to address the capstone Project 4 done part of IK ML Switch up program. The project is inspired from the [Amazon bin challenge](https://github.com/silverbottlep/abid_challenge)
 
+## Project contributors
+| Name[^1]            | email                  |
+|---------------------|------------------------|
+| Leo Pimentel        | leo@groundswellai.com  |
+| Nitesh Chinthireddy | reddy.nitesh@gmail.com |
+| Rathi Anand         | rathianandk@gmail.com  |
+[^1]: *alphabetically ordered*
+
+## Video Recordings
+|  Video Presentation | Presenter     |
+|---------------------|------------------------|
+| [Dual Encoder](https://drive.google.com/file/d/1S-_kYbOy6t83Eh-eDE-u4EUlNPcwC0gS/view?usp=sharing)       |  Leo Pimentel        |
+| [OWL](https://drive.google.com/file/d/1n6uaXb41HG-zSu1ifgDMWU26q0QAGybY/view?usp=drive_link)       | Nitesh Chinthireddy        |
+
+## Playground notebooks
+|  Notebook | Author     |
+|---------------------|------------------------|
+| [Dual Encoder](./notebooks/)       |  Leo Pimentel        |
+| [OWL](./notebooks/owlv2_playground.ipynb)       | Nitesh Chinthireddy        |
+| [DETR](./notebooks/FinalFinetunhood.ipynb)       | Rathi Anand Chinthireddy        |
+
 ## Project-4: BinSense AI - Inventory Vision System
 Objectives: \
 Use the dataset (images + metadata) and develop a highly accurate and fast computer vision model to verify if the items with their respective quantities are present in the image of the bin. 
@@ -11,13 +32,6 @@ For example, You get an order for 3 items and their quantities as mentioned belo
 
 Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQUFNDWtmDarXBrU4nn4Luw/edit#gid=601918728), [amazon dataset](https://github.com/awslabs/open-data-docs/tree/main/docs/aft-vbi-pds)
 
-## Project contributors
-| Name[^1]            | email                  |
-|---------------------|------------------------|
-| Leo Pimentel        | leo@groundswellai.com  |
-| Nitesh Chinthireddy | reddy.nitesh@gmail.com |
-| Rathi anand         | rathianandk@gmail.com  |
-[^1]: *alphabetically ordered*
 
 ## Tools
 - [Miniconda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html)
@@ -28,6 +42,7 @@ Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQ
 - git-cli (gh)
 - aws-cli
 - dvc
+- iterative/cml
 - bash
 
 ## Languages
@@ -40,6 +55,7 @@ Dataset : [drive](https://docs.google.com/spreadsheets/d/1rZfFrHEbfX_b-3ofEIDxLQ
 ## Project structure
 |-binsense (root dir) \
 |-|--scripts    : scripts to setup env, etc. \
+|-|--.github    : github actions workflow
 |-|--docs       : detailed documents about objective, data analysis, data prep, model arch etc. \
 |-|--libs       : shared code used in apps & notebooks \
 |-|--notebooks  : try out juyptner notebooks \
@@ -50,9 +66,14 @@ Sets up conda environment with python 3.11 & dependencies listed in train-enviro
 
 For API, we will define docker file to setup the environment.
 ```
+git clone https://github.com/nitesr/binsense.git
+cd binsense
 ./scripts/setup-env.sh --help
 ./scripts/setup-env.sh
 conda init && conda activate binsense_condaenv
+pip install -r requirements.txt
+pip install -r dev-requirements.txt
+dvc pull
 ```
 
 ## AWS EC2 setup
@@ -236,7 +257,7 @@ python -m binsense.cli.owlv2.train \
 --accelerator=mps
 ```
 
-### Run Owlv2 handpicked dag
+### Run Owlv2 handpicked DAG
 both data prep and training
 ```
 TORCH_DEVICE=mps LT_ACCELERATOR=gpu BINSEG_ROBOFLOW_API_KEY=$BINSEG_ROBOFLOW_API_KEY EXP_VER=v1 dvc repro

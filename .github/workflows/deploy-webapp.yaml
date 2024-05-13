@@ -99,9 +99,9 @@ jobs:
                     
                     # download from dvc
                     [ ! -d "~/bindfinder/data/bin" ] || mkdir -p ~/binfinder/data/bin
-                    dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin/products.csv
-                    dvc get https://github.com/nitesr/binsense data/bin/embedded_products.csv -o ~/binfinder/data/bin/embedded_products.csv
-                    dvc get https://github.com/nitesr/binsense data/bin/embed_store -o ~/binfinder/data/bin/embed_store
+                    dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin/products.csv -f
+                    dvc get https://github.com/nitesr/binsense data/bin/embedded_products.csv -o ~/binfinder/data/bin/embedded_products.csv -f
+                    dvc get https://github.com/nitesr/binsense data/bin/embed_store -o ~/binfinder/data/bin/embed_store -f
 
                     # download owl best model chkpt
                     # if [ "$OWL_CHKPT_S3_KEY" != "" ]:
