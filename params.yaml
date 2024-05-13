@@ -16,6 +16,7 @@ generate_embeds:
   dl_workers: 10
   bbox_labels_estimate: 2000
 
+
 binseg_roboflow:
   workspace: nitesh-c-eszzc
   project: binsense_segments_100
