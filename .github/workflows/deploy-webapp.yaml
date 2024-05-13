@@ -13,6 +13,7 @@ on:
             publicDnsName:
                 description: 'EC2 instance public host'
                 required: true
+
 jobs:
     deploy:
         runs-on: ubuntu-latest
@@ -78,6 +79,7 @@ jobs:
                 PRIVATE_SSH_KEY: ${{ secrets.BINFINDER_ED25519_KEY }}
                 AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
                 AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                # OWL_CHKPT_S3_KEY: ${{ github.events.inputs.owl_chkpt_file }}
               uses: appleboy/ssh-action@master
               with:
                 host: ${{ github.event.inputs.publicDnsName }}
@@ -91,13 +93,38 @@ jobs:
                     sudo aws --profile default configure set AWS_DEFAULT_REGION $AWS_DEFAULT_REGION
                     sudo aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY
                     # echo "{\"credHelpers\":{\"public.ecr.aws\": \"ecr-login\",\"$REGISTRY\": \"ecr-login\"}}" | sudo tee '/root/.docker/config.json' > '/dev/null'
+                    
                     docker image prune -a -f
-                    docker stop binfinder || true
-                    docker rm binfinder || true
                     docker pull $REGISTRY/$REPOSITORY:$IMAGE_TAG
+                    
+                    # download from dvc
                     [ ! -d "~/bindfinder/data/bin" ] || mkdir -p ~/binfinder/data/bin
                     dvc get https://github.com/nitesr/binsense data/bin/products.csv -o ~/binfinder/data/bin/products.csv
-                    docker run -v ~/binfinder/data:/data -d --name binfinder -p 80:8080 $REGISTRY/$REPOSITORY:$IMAGE_TAG
+                    dvc get https://github.com/nitesr/binsense data/bin/embedded_products.csv -o ~/binfinder/data/bin/embedded_products.csv
+                    dvc get https://github.com/nitesr/binsense data/bin/embed_store -o ~/binfinder/data/bin/embed_store
+
+                    # download owl best model chkpt
+                    # if [ "$OWL_CHKPT_S3_KEY" != "" ]:
+                    #   mkdir -p ~/binfinder/chkpts/bin
+                    #   aws s3api get-object --bucket binsense \
+                    #     --key $OWL_CHKPT_S3_KEY \
+                    #     ~/binfinder/chkpts/bin/owl_best_model.ckpt --output json
+                    
+                    docker stop binfinder || true
+                    docker rm binfinder || true
+                    docker run \
+                      -v ~/binfinder/data:/data \
+                      -v ~/binfinder/chkpts:/chkpts \
+                      --name binfinder -p 80:8080 \
+                      -e "PRODUCT_CSV_PATH=/data/bin/products.csv" \
+                      -e "EMBEDDED_PRODUCT_CSV_PATH=/data/bin/embedded_products.csv" \
+                      -e "TORCH_DEVICE=cpu" \
+                      -e "USE_OWL=True" \
+                      -e "USE_OWL_BASELINE=True" \
+                      -e "EMBED_STORE_DIR=/data/bin/embed_store" \
+                      -e "OWL_MODEL_PATH=/chkpts/bin/owl_best_model.ckpt" \
+                      -e "OWL_MODEL_PARAMS_PATH=/chkpts/bin/best_model_params.yaml" \
+                      -d $REGISTRY/$REPOSITORY:$IMAGE_TAG 
 
 
                 

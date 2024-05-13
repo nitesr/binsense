@@ -246,7 +246,14 @@ docker build -t binfinder:latest -f ./apps/binfinder/Dockerfile .
 DOCKER_IMG_ID=$(docker images | grep "binfinder" | xargs echo $1 | cut -d ' ' -f 3)
 docker stop binfinder || true
 docker rm binfinder || true
-docker run --name binfinder -v ./data:/data -p 8080:8080 -ti $DOCKER_IMG_ID
+docker run --name binfinder -v ./data:/data -p 8080:8080  \
+-e "PRODUCT_CSV_PATH=/data/bin/products.csv" \
+-e "EMBEDDED_PRODUCT_CSV_PATH=/data/bin/embedded_products.csv" \
+-e "USE_OWL=True" \
+-e "USE_OWL_BASELINE=True" \
+-e "EMBED_STORE_DIR=/data/bin/embed_store" \
+-e "TORCH_DEVICE=cpu" \
+-ti $DOCKER_IMG_ID
 ```
 
 

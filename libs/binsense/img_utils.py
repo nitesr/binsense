@@ -40,7 +40,9 @@ def annotate_image(
         labels: List[str], 
         bboxes_cxy: np.ndarray, 
         seg_coords: List[np.array],
-        colors: List[Tuple[int, int, int]] = None) -> PILImage:
+        colors: List[Tuple[int, int, int]] = None,
+        normalize: bool = True,
+        convert_cxy_xy: bool = True) -> PILImage:
     """
     Annotate image with segmentation mask
     """
@@ -51,7 +53,7 @@ def annotate_image(
     if labels is not None and seg_coords is not None and len(seg_coords) != len(labels):
         raise ValueError(f"size of segments({len(seg_coords)}) and labels({len(labels)}) doesn't match.")
     
-    if bboxes_cxy is None or seg_coords is None:
+    if bboxes_cxy is None and seg_coords is None:
         raise ValueError('either bbox or seg are required!')
     
     n_annotations = len(bboxes_cxy) if bboxes_cxy is not None else len(seg_coords)
@@ -77,9 +79,9 @@ def annotate_image(
           cc[:,1] *= image.height
           mask_imgs.append(create_polygon_mask(image.size, cc))
         return mask_imgs  
-        
-    mask_imgs = unnorm_and_mask() if seg_coords is not None else []
-    bboxes = unnorm_bboxes() if bboxes_cxy is not None else []
+     
+    mask_imgs = ( unnorm_and_mask() if normalize else seg_coords) if seg_coords is not None else []
+    bboxes = ( unnorm_bboxes() if normalize else bboxes_cxy ) if bboxes_cxy is not None else []
     
     annotated_tensor = transforms.PILToTensor()(image)
     # Convert mask images to tensors
@@ -98,7 +100,7 @@ def annotate_image(
         # Annotate the sample image with labels and bounding boxes
         annotated_tensor = draw_bounding_boxes(
             image=annotated_tensor, 
-            boxes=box_convert(torch.Tensor(bboxes), 'cxcywh', 'xyxy'),
+            boxes=box_convert(torch.Tensor(bboxes), 'cxcywh', 'xyxy') if convert_cxy_xy else torch.Tensor(bboxes),
             labels=labels,
             colors=colors
         )
