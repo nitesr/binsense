@@ -102,6 +102,9 @@ jobs:
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
               run: |
+                echo "### Testing cml comment" >> report.md
+                cml comment update "test comment" report.md &
+
                 apt-get update
                 apt-get install cron
                 apt-get install libgl1
@@ -129,16 +132,16 @@ jobs:
                 echo "## Validating outputs" >> report.md
                 
                 echo "### data split distributions" >> report.md
-                cml comment "![inline](./data/bin/handpick_train_test_dist.png)" --md >> report.md
+                cml comment update "![inline](./data/bin/handpick_train_test_dist.png)" report.md &
                 
                 echo "### data split samples" >> report.md
-                cml comment "![inline](./data/bin/handpick_train_test_samples.png)" --md >> report.md
+                cml comment "![inline](./data/bin/handpick_train_test_samples.png)" report.md &
                 
                 echo "### pre-annotation samples for annotation task" >> report.md
-                cml comment "![inline](./data/bin/sample_preannotated_images.png)" --md >> report.md
+                cml comment "![inline](./data/bin/sample_preannotated_images.png)" report.md &
                 
                 echo "### ground truth annotation samples after annotation" >> report.md
-                cml comment "![inline](./data/bin/sample_gt_annotation_images.png)" --md >> report.md
+                cml comment "![inline](./data/bin/sample_gt_annotation_images.png)" report.md &
 
                 echo "### downloaded dataset sanity checks after annotation" >> report.md
                 cat ./data/bin/downloaded_data_valid_results.txt >> report.md
