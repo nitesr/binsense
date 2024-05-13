@@ -12,11 +12,13 @@ from ...embed_datastore import SafeTensorEmbeddingDatastore, EmbeddingDatastore
 from ...utils import get_default_on_none, load_params
 
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+
 from typing import Dict, Tuple, Any
 
 import pandas as pd
 import lightning as L
-import logging, argparse, os, sys
+import logging, argparse, os, sys, torch
 
 def _get_baseline_model():
     owl_model_cfg = Owlv2Config(**hloader.load_owlv2model_config())
@@ -120,6 +122,7 @@ def train(
     num_workers: int = 0, 
     ckpt_fname: str = None,
     manual_seed: int = None,
+    early_stopping: bool = False,
     **kwargs):
     
     print('kwargs: ', kwargs)
@@ -139,9 +142,14 @@ def train(
     model = _get_baseline_model()
     lmodel = LitInImageQuerier(model, cfg=cfg)
     
+    callbacks = []
+    if early_stopping:
+        callbacks.append(EarlyStopping(monitor="val_loss", mode="min", patience=3))
+
     trainer = L.Trainer(
         min_epochs=cfg.min_epochs, 
         max_epochs=cfg.max_epochs, 
+        callbacks=callbacks,
         **kwargs)
     ckpt_fpath = os.path.join(cfg.chkpt_dirpath, ckpt_fname) if ckpt_fname else None
     trainer.fit(lmodel, datamodule=data_module, ckpt_path=ckpt_fpath)
@@ -260,6 +268,10 @@ if __name__ == '__main__':
         "--manual_seed", help="manual seed for randomness",
         default=params.train.manual_seed, type=int
     )
+    parser.add_argument(
+        "--early_stopping", help="consider early stopping for training",
+        default=params.train.early_stopping, type=bool
+    )
     
     parser.add_argument(
         "--train", help="train the model", action="store_true")
@@ -267,7 +279,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "--test", help="test the model", action="store_true")
     
+    
     args = parser.parse_args()
+    torch.manual_seed(args.manual_seed)
     if args.build_dataset:
         build_dataset(args.pos_neg_dataset_ratio, args.manual_seed)
     
@@ -278,7 +292,8 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
-            manual_seed=params.train.manual_seed,
+            manual_seed=args.manual_seed,
+            early_stopping=args.early_stopping,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,
@@ -291,7 +306,8 @@ if __name__ == '__main__':
             score_threshold=args.score_threshold,
             iou_threshold=args.iou_threshold,
             nms_threshold=args.nms_threshold,
-            eos_coef=args.eos_coef
+            eos_coef=args.eos_coef,
+            log_every_n_steps=params.train.log_every_n_steps
         )
     elif args.test:
         tlogger = TensorBoardLogger(cfg.tb_logs_dir, version=args.experiment_version)
@@ -300,7 +316,7 @@ if __name__ == '__main__':
             num_workers=args.num_workers,
             ckpt_fname=args.ckpt_fname,
             logger=tlogger,
-            manual_seed=params.train.manual_seed,
+            manual_seed=args.manual_seed,
             fast_dev_run=args.fast_dev_run,
             devices=args.devices,
             strategy=args.strategy,

@@ -109,6 +109,7 @@ def run_validator(
     with open(valresults_fp, 'w') as f:
         f.write(f'validation successful: {valid}\n')
         f.write('\t\n'.join([ f'{chk[0]}: {chk[1]}' for chk in checks]))
+        f.write('\n\n')
 
     print(f'validation successful: {valid}')
     print('\t\n'.join([ f'{chk[0]}: {chk[1]}' for chk in checks]))

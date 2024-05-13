@@ -122,6 +122,21 @@ stages:
       - data/bin/embed_store
     outs:
       - data/bin/testresults_testbaseline.csv
+      - metrics/bin/test_confusion_matrix.png
+  owl_train:
+    cmd: python -m binsense.cli.owlv2.train --train --experiment_version=$EXP_VER --accelerator=$TORCH_DEVICE
+    params:
+      - train
+    deps:
+      - libs/binsense/cli/owlv2/train.py
+      - libs/binsense/lightning/config.py
+      - data/bin/filtered_dataset
+      - data/bin/inimage_queries.csv
+      - data/bin/embed_store
+    out:
+      - metrics/bin/last_losses_metrics.csv
+      - metrics/bin/val_confusion_matrix.png
+
 
   
 

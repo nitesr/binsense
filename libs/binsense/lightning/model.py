@@ -14,6 +14,7 @@ from torch import Tensor
 from torch.optim.lr_scheduler import ExponentialLR
 from torchvision.ops import nms
 from lightning.pytorch.loggers import TensorBoardLogger
+
 from typing import Any, List, Dict, Tuple, Mapping
 from matplotlib import pyplot as plt
 
@@ -57,6 +58,7 @@ class LitInImageQuerier(L.LightningModule):
         model: InImageQuerier, 
         cfg: Config = None,
         results_csvpath: str = None,
+        metrics_dirpath: str = None
     ) -> None:
         super(LitInImageQuerier, self).__init__()
         
@@ -82,6 +84,7 @@ class LitInImageQuerier(L.LightningModule):
         self.lr = self.cfg.learning_rate
         self.lr_decay_rate = self.cfg.lr_decay_rate
         self.results_csvpath = get_default_on_none(results_csvpath, self.cfg.results_csv_filepath)
+        self.metrics_dirpath = get_default_on_none(metrics_dirpath, self.cfg.metrics_dirpath)
         
         # Lightning expects the metrics to be defined as module variables
         self.train_exists_acc = QueryAccuracy(criteria="exists")
@@ -226,11 +229,21 @@ class LitInImageQuerier(L.LightningModule):
         return metrics
     
     def _log_losses_metrics(self, losses: Dict, metrics: Dict, step: str, **kwargs):
+        metrics_csv = []
+
         for i, (name, metric) in enumerate(metrics.items()):
             self.log(name=name, value=metric, prog_bar=(i == 0), **kwargs)
+            metrics_csv.append(f"{step},{name},{metric}")
         
         for i, (name, loss) in enumerate(losses.items()):
             self.log(name=f'{step}_{name}', value=loss, prog_bar=(i == 0), **kwargs)
+            metrics_csv.append(f"{step},{name},{loss}")
+        
+        with open(os.path.join(self.metrics_dirpath, f"{step}_last_losses_metrics.csv"), "w") as f:
+            f.write("step,name,value")
+            for line in metrics_csv:
+                f.write(line)
+                f.write("\n")
     
     def _log_conf_matrix(self, step: str):
         if not isinstance(self.logger, TensorBoardLogger):
@@ -239,6 +252,11 @@ class LitInImageQuerier(L.LightningModule):
         tblogger = self.logger.experiment
         fig, ax = plt.subplots(1, 1, figsize = (10,7))
         fig, _ = self.conf_matrix[step].plot(ax=ax)
+        fig.suptitle(f"{step} Confusion Matrix")
+        plt.savefig(
+            fname=os.path.join(
+                self.metrics_dirpath, f'{step}_confusion_matrix.png'), 
+            format='png')
         plt.close(fig)
         tblogger.add_figure(f"{step}_confusion_matrix", fig, self.current_epoch)
     

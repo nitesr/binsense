@@ -101,6 +101,7 @@ jobs:
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
+                EXP_VER: ${{ github.event.pull_request.head.sha }}
               run: |
               
                 apt-get update
@@ -118,7 +119,7 @@ jobs:
                 # Install dependencies
                 pip install -r requirements.txt
                 pip install -e libs
-                mkdir -p data/coco_2017 data/bin data/amzbin _logs/coco_2017 _logs/bin
+                mkdir -p data/bin data/bin metrics/bin data/amzbin data/coco_2017  _logs/coco_2017 _logs/bin 
 
                 dvc pull
                 dvc repro
@@ -127,7 +128,7 @@ jobs:
         
                 ### Create CML report ###
 
-                echo "## Validating outputs" > new_report.md
+                echo "## Validating Data Prep outputs" > new_report.md
                 
                 echo "### data split distributions" >>  new_report.md
                 echo "![inline](./data/bin/handpick_train_test_dist.png)" >>  new_report.md
@@ -141,12 +142,30 @@ jobs:
                 echo "### ground truth annotation samples after annotation" >> new_report.md
                 echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> new_report.md
 
+                cml comment create new_report.md &
+                echo "\n" > new_report
+
                 echo "### downloaded dataset sanity checks after annotation" >> new_report.md
                 cat ./data/bin/downloaded_data_valid_results.txt >> new_report.md
 
+                cml comment update new_report.md &
+                echo "\n" > new_report
+
+
+                echo "## Validating Dataset stats" > new_report.md
                 echo "### train dataset stats before training" >> new_report.md
                 cat ./data/bin/train_dataset_stats.txt >> new_report.md
 
+                cml comment create new_report.md &
+                echo "\n" > new_report
+
+                
+                echo "## Metrics" > new_report.md
+                echo "![inline](./metrics/bin/val_confusion_matrix)" >> new_report.md
+                cat ./data/bin/train_dataset_stats.txt >> new_report.md
+                cat ./data/bin/val_last_losses_metrics.txt >> new_report.md
+                cml comment create new_report.md &
+                echo "\n" > new_report
                 
                 #########################
 
@@ -160,8 +179,4 @@ jobs:
                 # done
 
                 #########################
-                
-                cat new_report.md
-
-                cml comment create new_report.md &
 
