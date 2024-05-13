@@ -127,41 +127,41 @@ jobs:
         
                 ### Create CML report ###
 
-                echo "## Validating outputs" >> report.md
+                echo "## Validating outputs" > new_report.md
                 
-                echo "### data split distributions" >> report.md
-                echo "![inline](./data/bin/handpick_train_test_dist.png)" >> report.md
+                echo "### data split distributions" >>  new_report.md
+                echo "![inline](./data/bin/handpick_train_test_dist.png)" >>  new_report.md
                 
-                echo "### data split samples" >> report.md
-                echo "![inline](./data/bin/handpick_train_test_samples.png)" >> report.md
+                echo "### data split samples" >> new_report.md
+                echo "![inline](./data/bin/handpick_train_test_samples.png)" >> new_report.md
                 
-                echo "### pre-annotation samples for annotation task" >> report.md
-                echo "![inline](./data/bin/sample_preannotated_images.png)" >> report.md
+                echo "### pre-annotation samples for annotation task" >> new_report.md
+                echo "![inline](./data/bin/sample_preannotated_images.png)" >> new_report.md
                 
-                echo "### ground truth annotation samples after annotation" >> report.md
-                echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> report.md
+                echo "### ground truth annotation samples after annotation" >> new_report.md
+                echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> new_report.md
 
-                echo "### downloaded dataset sanity checks after annotation" >> report.md
-                cat ./data/bin/downloaded_data_valid_results.txt >> report.md
+                echo "### downloaded dataset sanity checks after annotation" >> new_report.md
+                cat ./data/bin/downloaded_data_valid_results.txt >> new_report.md
 
-                echo "### train dataset stats before training" >> report.md
-                cat ./data/bin/train_dataset_stats.txt >> report.md
+                echo "### train dataset stats before training" >> new_report.md
+                cat ./data/bin/train_dataset_stats.txt >> new_report.md
 
                 
                 #########################
 
-                # echo "## Metrics" >> report.md
-                # dvc metrics show --md >> report.md
-                # dvc metrics diff show --md >> report.md
+                # echo "## Metrics" >> new_report.md
+                # dvc metrics show --md >> new_report.md
+                # dvc metrics diff show --md >> new_report.md
 
-                # echo "## A few random test images" >> report.md
+                # echo "## A few random test images" >> new_report.md
                 # for file in $(ls data/test_preds/ | sort -R | tail -10); do
-                #     cml asset publish data/test_preds/$file --md >> report.md
+                #     cml asset publish data/test_preds/$file --md >> new_report.md
                 # done
 
                 #########################
                 
-                cat report.md
+                cat new_report.md
 
-                cml comment create report.md &
+                cml comment create new_report.md &
 

@@ -30,4 +30,3 @@ train:
   min_epochs: 1
   max_epochs: 30
 
-
