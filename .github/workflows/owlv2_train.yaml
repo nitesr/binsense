@@ -160,6 +160,8 @@ jobs:
                 # done
 
                 #########################
+                
+                cat report.md
 
                 cml comment create report.md &
 
