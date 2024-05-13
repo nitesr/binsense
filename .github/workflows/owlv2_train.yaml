@@ -98,17 +98,26 @@ jobs:
                 # REPO_TOKEN: ${{ steps.get-token.outputs.token }}
                 REPO_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
                 TORCH_DEVICE: 'cuda'
+                LT_ACCELERATOR: 'auto'
                 BINSEG_ROBOFLOW_API_KEY: ${{ secrets.BINSEG_ROBOFLOW_API_KEY }}
                 AWS_DEFAULT_REGION: 'us-east-1'
                 AWS_REGION: 'us-east-1'
+                EXP_VER: ${{ github.event.pull_request.head.sha }}
               run: |
               
                 apt-get update
                 apt-get install cron
                 apt-get install libgl1
 
+                wget https://us.download.nvidia.com/XFree86/Linux-x86_64/550.78/NVIDIA-Linux-x86_64-550.78.run
+                sudo sh ./NVIDIA-Linux-x86_64-550.78.run -q -s
+
+                wget https://developer.download.nvidia.com/compute/cuda/12.4.1/local_installers/cuda_12.4.1_550.54.15_linux.run
+                sudo sh cuda_12.4.1_550.54.15_linux.run
+
                 #current directory
                 pwd
+                nvidia-smi
 
                 # upload logs to s3
                 echo "* * * * * aws s3 sync ~/binsense/_logs s3://binsense/_logs/ > ~/crontab_aws_s3_sync_logs.out 2>&1" >> mycron
@@ -116,9 +125,10 @@ jobs:
                 rm mycron
 
                 # Install dependencies
+                pip install torch[cuda]==2.2.1
                 pip install -r requirements.txt
                 pip install -e libs
-                mkdir -p data/coco_2017 data/bin data/amzbin _logs/coco_2017 _logs/bin
+                mkdir -p data/bin data/bin metrics/bin data/amzbin data/coco_2017  _logs/coco_2017 _logs/bin 
 
                 dvc pull
                 dvc repro
@@ -127,41 +137,55 @@ jobs:
         
                 ### Create CML report ###
 
-                echo "## Validating outputs" >> report.md
+                echo "## Validating Data Prep outputs" > new_report.md
                 
-                echo "### data split distributions" >> report.md
-                echo "![inline](./data/bin/handpick_train_test_dist.png)" >> report.md
+                echo "### data split distributions" >>  new_report.md
+                echo "![inline](./data/bin/handpick_train_test_dist.png)" >>  new_report.md
                 
-                echo "### data split samples" >> report.md
-                echo "![inline](./data/bin/handpick_train_test_samples.png)" >> report.md
+                echo "### data split samples" >> new_report.md
+                echo "![inline](./data/bin/handpick_train_test_samples.png)" >> new_report.md
                 
-                echo "### pre-annotation samples for annotation task" >> report.md
-                echo "![inline](./data/bin/sample_preannotated_images.png)" >> report.md
+                echo "### pre-annotation samples for annotation task" >> new_report.md
+                echo "![inline](./data/bin/sample_preannotated_images.png)" >> new_report.md
                 
-                echo "### ground truth annotation samples after annotation" >> report.md
-                echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> report.md
+                echo "### ground truth annotation samples after annotation" >> new_report.md
+                echo "![inline](./data/bin/sample_gt_annotation_images.png)" >> new_report.md
 
-                echo "### downloaded dataset sanity checks after annotation" >> report.md
-                cat ./data/bin/downloaded_data_valid_results.txt >> report.md
+                cml comment create new_report.md &
+                echo "\n" > new_report
 
-                echo "### train dataset stats before training" >> report.md
-                cat ./data/bin/train_dataset_stats.txt >> report.md
+                echo "### downloaded dataset sanity checks after annotation" >> new_report.md
+                cat ./data/bin/downloaded_data_valid_results.txt >> new_report.md
 
+                cml comment update new_report.md &
+                echo "\n" > new_report
+
+
+                echo "## Validating Dataset stats" > new_report.md
+                echo "### train dataset stats before training" >> new_report.md
+                cat ./data/bin/train_dataset_stats.txt >> new_report.md
+
+                cml comment create new_report.md &
+                echo "\n" > new_report
+
+                
+                echo "## Metrics" > new_report.md
+                echo "![inline](./metrics/bin/val_confusion_matrix)" >> new_report.md
+                cat ./data/bin/train_dataset_stats.txt >> new_report.md
+                cat ./data/bin/val_last_losses_metrics.txt >> new_report.md
+                cml comment create new_report.md &
+                echo "\n" > new_report
                 
                 #########################
 
-                # echo "## Metrics" >> report.md
-                # dvc metrics show --md >> report.md
-                # dvc metrics diff show --md >> report.md
+                # echo "## Metrics" >> new_report.md
+                # dvc metrics show --md >> new_report.md
+                # dvc metrics diff show --md >> new_report.md
 
-                # echo "## A few random test images" >> report.md
+                # echo "## A few random test images" >> new_report.md
                 # for file in $(ls data/test_preds/ | sort -R | tail -10); do
-                #     cml asset publish data/test_preds/$file --md >> report.md
+                #     cml asset publish data/test_preds/$file --md >> new_report.md
                 # done
 
                 #########################
-                
-                cat report.md
-
-                cml comment create report.md &
 

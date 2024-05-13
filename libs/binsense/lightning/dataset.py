@@ -344,13 +344,16 @@ class LitInImageQuerierDM(L.LightningDataModule):
             collate_fn=_collate_fn,
             num_workers=self.num_workers,
             pin_memory=False,
+            persistent_workers=True,
             shuffle=True)
     
     def val_dataloader(self) -> TorchDataLoader:
         return TorchDataLoader(
             self.val_ds, self.batch_size, 
             collate_fn=_collate_fn, 
-            num_workers=self.num_workers)
+            num_workers=self.num_workers,
+            persistent_workers=True
+        )
     
     def test_dataloader(self) -> TorchDataLoader:
         return TorchDataLoader(
