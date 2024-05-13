@@ -109,6 +109,12 @@ jobs:
                 apt-get install cron
                 apt-get install libgl1
 
+                wget https://us.download.nvidia.com/XFree86/Linux-x86_64/550.78/NVIDIA-Linux-x86_64-550.78.run
+                sudo sh ./NVIDIA-Linux-x86_64-550.78.run
+
+                wget https://developer.download.nvidia.com/compute/cuda/12.4.1/local_installers/cuda_12.4.1_550.54.15_linux.run
+                sudo sh cuda_12.4.1_550.54.15_linux.run
+
                 #current directory
                 pwd
                 nvidia-smi
