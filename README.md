@@ -234,9 +234,12 @@ python -m binsense.cli.owlv2.train \
 --test --profiler=simple \
 --experiment_version=test_baseline --batch_size=8 --num_workers=3 \
 --accelerator=mps
+```
 
-
-
+### Run Owlv2 handpicked dag
+both data prep and training
+```
+TORCH_DEVICE=mps LT_ACCELERATOR=gpu BINSEG_ROBOFLOW_API_KEY=$BINSEG_ROBOFLOW_API_KEY EXP_VER=v1 dvc repro
 ```
 
 ### Run web app
