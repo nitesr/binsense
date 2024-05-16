@@ -82,7 +82,7 @@ class OwlImageQuerier(InBinQuerier):
             raise ValueError("num of queries doesn't match keys is allowed!")
         
         n = len(target_pixels)
-        query_embeds = torch.tensor(query_embeds, dtype=torch.float32)
+        query_embeds = torch.tensor(query_embeds, dtype=torch.float32)[:, None, :]
         img_sizes = self._get_image_size(target_pixels).expand(n, -1)
         with torch.no_grad():
             target_pixels = target_pixels.to(self.device)

@@ -145,7 +145,7 @@ def get_products(prod_name: str = None, skip: int = 0, limit: int = 10) -> Searc
     
     total = df.shape[0]
     end_idx = min(skip + limit, df.shape[0])
-    df = df.iloc[skip : end_idx-1]
+    df = df.iloc[skip : end_idx]
     return SearchResults(
         offset=skip, total=total, 
         results= [ Product(**kwargs) for kwargs in df.to_dict(orient='records')]

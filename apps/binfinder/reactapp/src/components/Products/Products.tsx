@@ -57,16 +57,14 @@ export const Products: FunctionComponent = () => {
     }
   };
 
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const searchValue = event.target.value
-    setSearchTerm(searchValue)
+  const handleSearch = () => {
     setOffset(0)
-    fetchProducts({searchTerm: searchValue, offset: 0, limit: 10})
+    fetchProducts({searchTerm, offset: 0, limit: 10})
   }
 
   useEffect(() => {
     fetchProducts({ searchTerm, offset, limit: 10 });
-  }, [offset, searchTerm])
+  }, [offset])
 
   const addToCart = (product: Product):void => {
     const item: CartItem = {
@@ -92,7 +90,8 @@ export const Products: FunctionComponent = () => {
   return (
     <section className={classes.productPage}>
       <h1>Products</h1>
-      <input value={searchTerm} onChange={handleSearch} placeholder="Search term" />
+      <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search term" />
+      <button onClick={handleSearch}>Search</button>
  
       <div className={classes.container}>
         {products &&
